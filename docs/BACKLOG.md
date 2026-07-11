@@ -87,6 +87,19 @@ Acceptance criteria:
 - [x] UI shows a recent ball log.
 - [x] UI shows commentary tied to conditions and tactics.
 
+### Story: Watch A Live Match Stream
+
+Status: done.
+
+As a player, I want a visually active match screen so that simulating a match feels like watching cricket unfold instead of reading a form.
+
+Acceptance criteria:
+
+- [x] UI shows a broadcast-style score panel with score, overs, run rate, chase context, and momentum.
+- [x] UI clearly shows current striker and current bowler stats.
+- [x] User can switch between ball-by-ball and over-by-over stream views.
+- [x] Boundaries and wickets are visually highlighted in the stream.
+
 ### Story: Understand Conditions
 
 Status: done.

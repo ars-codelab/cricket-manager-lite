@@ -300,6 +300,226 @@ input {
   margin-top: 14px;
 }
 
+.match-stage {
+  display: grid;
+  gap: 14px;
+  background:
+    linear-gradient(150deg, rgba(18, 55, 45, 0.96), rgba(32, 92, 68, 0.9) 48%, rgba(236, 247, 228, 0.88) 49%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 30px);
+}
+
+.match-scorebug {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 10px;
+  color: #f8fff8;
+}
+
+.match-scorebug > div {
+  display: grid;
+  gap: 5px;
+  min-height: 118px;
+  align-content: center;
+  padding: 16px;
+  border: 1px solid rgba(248, 255, 248, 0.16);
+  background: rgba(9, 31, 24, 0.58);
+}
+
+.match-scorebug span,
+.matchup-card span,
+.stream-heading span {
+  color: #f3c44f;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.match-scorebug strong {
+  font-size: clamp(2.8rem, 8vw, 5.4rem);
+  line-height: 0.88;
+}
+
+.match-scorebug small,
+.matchup-card small {
+  color: #d8eadc;
+}
+
+.match-dashboard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.matchup-card {
+  display: grid;
+  gap: 10px;
+  min-height: 158px;
+  align-content: center;
+  padding: 16px;
+  border: 1px solid rgba(23, 66, 52, 0.14);
+}
+
+.matchup-card.striker {
+  background: #f8fff8;
+  color: #12201b;
+}
+
+.matchup-card.bowler {
+  background: #f3c44f;
+  color: #1b261f;
+}
+
+.matchup-card strong {
+  font-size: clamp(1.35rem, 4vw, 2.15rem);
+  line-height: 1;
+}
+
+.matchup-card.bowler span {
+  color: #6d4805;
+}
+
+.matchup-card.striker small {
+  color: #60736a;
+}
+
+.matchup-card.bowler small {
+  color: #4e3d16;
+}
+
+.stat-line {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.stat-line b {
+  font-size: 2.1rem;
+  line-height: 1;
+}
+
+.tempo-bar {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(4, minmax(0, 0.72fr));
+  gap: 8px;
+}
+
+.tempo-bar button,
+.stream-toggle button {
+  min-height: 44px;
+  border-radius: 999px;
+  background: rgba(248, 255, 248, 0.92);
+  color: #173d30;
+  font-weight: 900;
+}
+
+.tempo-bar .primary-action {
+  background: #f3c44f;
+  color: #1f271f;
+}
+
+.tempo-bar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.compact-sim {
+  margin-bottom: 0;
+}
+
+.game-stream {
+  padding: 14px;
+  background: rgba(248, 255, 248, 0.9);
+  border: 1px solid rgba(23, 66, 52, 0.14);
+}
+
+.stream-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stream-heading > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.stream-heading strong {
+  color: #173d30;
+  font-size: 1.35rem;
+}
+
+.stream-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(64px, 1fr));
+  gap: 6px;
+  padding: 4px;
+  background: #e9f2df;
+}
+
+.stream-toggle button {
+  min-height: 36px;
+  border-radius: 0;
+  background: transparent;
+  color: #60736a;
+}
+
+.stream-toggle button.active {
+  background: #173d30;
+  color: #f8fff8;
+}
+
+.stream-list {
+  display: grid;
+  gap: 8px;
+  max-height: 326px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.stream-row {
+  display: grid;
+  grid-template-columns: 58px minmax(68px, auto) 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 54px;
+  padding: 10px;
+  background: #ffffff;
+  border-left: 5px solid #cbded1;
+  color: #173d30;
+}
+
+.stream-row b {
+  color: #60736a;
+  font-size: 0.82rem;
+}
+
+.stream-row span {
+  color: #12201b;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stream-row small {
+  color: #4a5d52;
+}
+
+.stream-row.boundary-row {
+  border-left-color: #f3c44f;
+  background: #fff8dc;
+}
+
+.stream-row.wicket-row {
+  border-left-color: #853626;
+  background: #fff1ea;
+}
+
+.over-row small {
+  word-break: break-word;
+}
+
 .sim-controls {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -469,6 +689,9 @@ input {
   .insight-grid,
   .scorecard-grid,
   .sim-controls,
+  .match-scorebug,
+  .match-dashboard,
+  .tempo-bar,
   .custom-sim,
   .live-plan {
     grid-template-columns: 1fr;
@@ -488,6 +711,36 @@ input {
 
   .score-tile {
     min-width: 0;
+  }
+
+  .match-stage {
+    padding: 10px;
+  }
+
+  .match-scorebug strong {
+    font-size: 3.1rem;
+  }
+
+  .matchup-card {
+    min-height: 130px;
+  }
+
+  .tempo-bar {
+    grid-template-columns: 1.4fr repeat(2, minmax(0, 0.8fr));
+  }
+
+  .tempo-bar button:nth-child(n + 4) {
+    display: none;
+  }
+
+  .stream-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stream-row {
+    grid-template-columns: 48px 72px 1fr;
+    gap: 8px;
   }
 
   .home-grid {

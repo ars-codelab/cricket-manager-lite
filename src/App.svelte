@@ -85,6 +85,7 @@
   let saveMessage = 'No saved setup loaded.'
   let importInput: HTMLInputElement | null = null
   let customOvers = 2
+  let streamMode: 'ball' | 'over' = 'ball'
   let lastSimulationKey = ''
   let lastNextBallKey = ''
   let nextBowlerId = ''
@@ -137,13 +138,23 @@
   $: activeBatters = progress.batting.filter((batter) => batter.balls > 0 || batter.dismissal).slice(0, 8)
   $: activeBowlers = progress.bowling.filter((bowler) => bowler.balls > 0 || bowler.wides > 0 || bowler.noBalls > 0)
   $: recentBalls = result.scorecard.balls.slice(-18)
+  $: ballStream = recentBalls.slice().reverse()
+  $: overStream = buildOverStream(result.scorecard.balls).slice(-6).reverse()
   $: isComplete = inningsState.completed
   $: currentStriker = isComplete ? null : result.scorecard.batting[inningsState.strikerIndex]
   $: currentPartner = isComplete ? null : result.scorecard.batting[inningsState.nonStrikerIndex]
+  $: currentBowler = result.scorecard.bowling.find((bowler) => bowler.id === nextBowlerId) ?? result.scorecard.bowling[0]
   $: currentOverNumber = Math.floor(inningsState.legalBalls / 6)
   $: inningsLabel = `${ordinal(inningsState.inningsNumber)} innings`
   $: chaseLabel = typeof inningsState.targetScore === 'number' ? `Target ${inningsState.targetScore}` : 'No target'
   $: matchResult = firstInningsResult && isComplete && inningsState.inningsNumber === 2 ? buildMatchResult(firstInningsResult, result) : null
+  $: requiredRate =
+    typeof inningsState.targetScore === 'number'
+      ? (Math.max(inningsState.targetScore - progress.score, 0) / Math.max((inningsState.maxLegalBalls - inningsState.legalBalls) / 6, 0.1)).toFixed(2)
+      : null
+  $: recentRuns = recentBalls.slice(-12).reduce((total, ball) => total + ball.totalRuns, 0)
+  $: recentWickets = recentBalls.slice(-12).filter((ball) => ball.wicketType).length
+  $: momentumLabel = recentWickets >= 2 ? 'Bowling surge' : recentRuns >= 18 ? 'Batting charge' : recentRuns >= 10 ? 'Batting edge' : 'Arm wrestle'
   $: nextBallKey = `${lastSimulationKey}-${progress.legalBalls}-${progress.wickets}-${currentStriker?.id ?? 'complete'}`
   $: if (nextBallKey !== lastNextBallKey) {
     const storedPlan = currentStriker?.id ? batterPlans[currentStriker.id] : null
@@ -158,6 +169,26 @@
   $: venueSummary = `${venue.city}, ${venue.country} · ${weather} · ${pitch} pitch`
 
   const bowlingOvers = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`
+  const strikeRate = (batter: BatterScore | null) => (batter && batter.balls > 0 ? ((batter.runs / batter.balls) * 100).toFixed(1) : '0.0')
+  const economyRate = (bowler: BowlerFigures | undefined) => (bowler && bowler.balls > 0 ? (bowler.runs / (bowler.balls / 6)).toFixed(2) : '0.00')
+  const deliveryLabel = (runs: number) => (runs === 0 ? 'dot' : `${runs}`)
+
+  const buildOverStream = (balls: SimulationResult['scorecard']['balls']) => {
+    const overs: { over: number; runs: number; wickets: number; balls: string[] }[] = []
+    let legalBalls = 0
+
+    for (const ball of balls) {
+      const overNumber = Math.floor(legalBalls / 6)
+      const over = overs[overNumber] ?? { over: overNumber + 1, runs: 0, wickets: 0, balls: [] }
+      over.runs += ball.totalRuns
+      if (ball.wicketType) over.wickets += 1
+      over.balls.push(ball.wicketType ? 'W' : ball.extraType ? ball.extraType : deliveryLabel(ball.runsBat))
+      overs[overNumber] = over
+      if (ball.legal) legalBalls += 1
+    }
+
+    return overs.filter((over) => over.balls.length)
+  }
 
   const ordinal = (value: number) => {
     if (value === 1) return '1st'
@@ -621,23 +652,51 @@
   {/if}
 
   {#if view === 'match'}
-    <section class="scorecard-panel">
-      <div class="panel-heading">
-        <span>Match Centre</span>
-        <strong>{progress.score}/{progress.wickets} in {progress.overs}</strong>
+    <section class="scorecard-panel match-stage">
+      <div class="match-scorebug">
+        <div>
+          <span>{inningsLabel}</span>
+          <strong>{progress.score}/{progress.wickets}</strong>
+          <small>{progress.overs} overs · RR {progress.runRate}{requiredRate ? ` · Req ${requiredRate}` : ''}</small>
+        </div>
+        <div>
+          <span>{typeof inningsState.targetScore === 'number' ? chaseLabel : `${format} par ${par}`}</span>
+          <strong>{momentumLabel}</strong>
+          <small>{venue.city} · {weather} · {pitch}</small>
+        </div>
       </div>
-      <p class="muted">{inningsLabel}{typeof inningsState.targetScore === 'number' ? ` · ${chaseLabel}` : ''}</p>
 
-      <div class="sim-controls">
-        <button type="button" on:click={() => revealOvers(1)} disabled={isComplete}>+1 over</button>
-        <button type="button" on:click={() => revealOvers(5)} disabled={isComplete}>+5 overs</button>
-        <button type="button" on:click={() => revealOvers(10)} disabled={isComplete}>+10 overs</button>
-        <button type="button" on:click={revealNextWicket} disabled={isComplete}>To wicket</button>
+      <div class="match-dashboard">
+        <article class="matchup-card striker">
+          <span>On strike</span>
+          <strong>{currentStriker?.name ?? 'Innings complete'}</strong>
+          <div class="stat-line">
+            <b>{currentStriker?.runs ?? 0}</b>
+            <small>{currentStriker?.balls ?? 0} balls · SR {strikeRate(currentStriker)}</small>
+          </div>
+          <small>{currentPartner?.name ? `Partner ${currentPartner.name} ${currentPartner.runs} (${currentPartner.balls})` : 'No partner'}</small>
+        </article>
+
+        <article class="matchup-card bowler">
+          <span>With the ball</span>
+          <strong>{currentBowler?.name ?? 'Bowler'}</strong>
+          <div class="stat-line">
+            <b>{currentBowler?.wickets ?? 0}/{currentBowler?.runs ?? 0}</b>
+            <small>{bowlingOvers(currentBowler?.balls ?? 0)} ov · Econ {economyRate(currentBowler)}</small>
+          </div>
+          <small>{liveBowlingLength} · {liveBowlingLine} · {liveField}</small>
+        </article>
+      </div>
+
+      <div class="tempo-bar">
+        <button class="primary-action" type="button" on:click={() => revealOvers(1)} disabled={isComplete}>Play over</button>
+        <button type="button" on:click={() => revealOvers(5)} disabled={isComplete}>+5</button>
+        <button type="button" on:click={revealNextWicket} disabled={isComplete}>Wicket</button>
         <button type="button" on:click={() => advanceSimulation('innings')} disabled={isComplete}>Innings</button>
         <button type="button" on:click={resetInnings} disabled={result.scorecard.balls.length === 0}>Reset</button>
       </div>
 
-      <div class="custom-sim">
+      <div class="custom-sim compact-sim">
         <label>
           Custom overs
           <input bind:value={customOvers} min="1" max="30" type="number" />
@@ -645,6 +704,49 @@
         <button type="button" on:click={() => revealOvers(Number(customOvers) || 1)} disabled={isComplete}>Sim custom</button>
         <span>{result.scorecard.balls.length === 0 ? 'Ready to start.' : isComplete ? 'Innings complete.' : `${result.scorecard.balls.length} events simulated.`}</span>
       </div>
+
+      <article class="game-stream">
+        <div class="stream-heading">
+          <div>
+            <span>Live stream</span>
+            <strong>{streamMode === 'ball' ? 'Ball by ball' : 'Over by over'}</strong>
+          </div>
+          <div class="stream-toggle" aria-label="Stream mode">
+            <button class:active={streamMode === 'ball'} type="button" on:click={() => (streamMode = 'ball')}>Ball</button>
+            <button class:active={streamMode === 'over'} type="button" on:click={() => (streamMode = 'over')}>Over</button>
+          </div>
+        </div>
+
+        {#if streamMode === 'ball'}
+          <div class="stream-list">
+            {#if ballStream.length}
+              {#each ballStream as ball}
+                <div class:wicket-row={Boolean(ball.wicketType)} class:boundary-row={ball.runsBat === 4 || ball.runsBat === 6} class="stream-row">
+                  <b>{ball.over}</b>
+                  <span>{ball.wicketType ? 'Wicket' : ball.extraType ? ball.extraType : deliveryLabel(ball.runsBat)}</span>
+                  <small>{ball.commentary}</small>
+                </div>
+              {/each}
+            {:else}
+              <p class="muted">Awaiting first ball.</p>
+            {/if}
+          </div>
+        {:else}
+          <div class="stream-list">
+            {#if overStream.length}
+              {#each overStream as over}
+                <div class:wicket-row={over.wickets > 0} class:boundary-row={over.runs >= 10} class="stream-row over-row">
+                  <b>Over {over.over}</b>
+                  <span>{over.runs}/{over.wickets}</span>
+                  <small>{over.balls.join(' · ')}</small>
+                </div>
+              {/each}
+            {:else}
+              <p class="muted">Awaiting first over.</p>
+            {/if}
+          </div>
+        {/if}
+      </article>
 
       {#if isComplete && inningsState.inningsNumber === 1}
         <div class="custom-sim">
