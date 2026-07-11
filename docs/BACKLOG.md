@@ -2,7 +2,7 @@
 
 ## Milestone 1: First Playable Custom Match
 
-Status: mostly implemented for a single generic innings. Remaining work is polish, stronger plausibility tuning, and real teams/players.
+Status: playable for a single generic innings. Remaining work is polish, stronger plausibility tuning, real teams/players, and richer match flow.
 
 ### Story: Configure A Match
 
@@ -140,6 +140,7 @@ Acceptance criteria:
 ## Milestone 5: Offline Distribution
 
 Status: started. Relative production builds, PWA manifest, basic service worker, GitHub Pages workflow, and release ZIP artifact workflow are in place.
+Setup save/load/export/import is available through localStorage and JSON files. Full match history still needs IndexedDB.
 
 ### Story: Install And Download The Game
 

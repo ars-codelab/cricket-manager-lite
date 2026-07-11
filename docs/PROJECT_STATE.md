@@ -52,6 +52,8 @@ Later milestones add:
 - Full 29-venue condition matrix from the research notes is loaded as static fixtures.
 - Custom match controls include format, venue, weather, pitch, match time, outfield, difficulty, and batting tactics.
 - The simulator now produces ball events, batting card, bowling figures, extras, fall of wickets, partnerships, metadata, and recent commentary.
+- Mobile app shell includes Home, Setup, Match, and Insights views with playable scenario presets.
+- Current match setup can be saved locally, loaded, exported to JSON, and imported back into the browser.
 - Static distribution groundwork is in place: relative Vite paths, web manifest, service worker, Pages workflow, and release ZIP workflow.
 
 ## Known Technical Debt
@@ -60,6 +62,7 @@ Later milestones add:
 - Current engine uses generic placeholder XIs; real team/player rosters are a later milestone.
 - Test cricket remains a simplified one-innings simulation with five-day forecast display, not full multi-innings match state.
 - Service worker is basic app-shell/runtime caching and should be hardened before public beta.
+- Current save implementation uses localStorage for setup data only; full match history and career saves should move to IndexedDB.
 
 ## GitHub
 
