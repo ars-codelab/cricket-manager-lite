@@ -1,11 +1,13 @@
-import { formatScale, parForFormat, pitchProfiles, weatherProfiles } from './data'
+import { formatScale, parForFormat, pitchProfiles, venues, weatherProfiles } from './data'
 import type {
   BallEvent,
   BatterScore,
   BattingTactics,
+  BowlingTactics,
   BowlerFigures,
   ConditionModifiers,
-  FallOfWicket,
+  AdvanceInningsCommand,
+  InningsState,
   InningsScorecard,
   MatchConditions,
   MatchFormat,
@@ -19,7 +21,7 @@ import type {
   WeatherType,
 } from './types'
 
-const ENGINE_VERSION = '0.2.0'
+const ENGINE_VERSION = '0.3.0'
 const RULESET_VERSION = '0.1.0'
 const DATA_VERSION = '0.1.0'
 const ROSTER_VERSION = 'generic-0.1.0'
@@ -42,6 +44,15 @@ export const createSeededRandom = (seed: string) => {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
+}
+
+export const defaultBowlingTactics: BowlingTactics = {
+  length: 'Good',
+  line: 'Fourth stump',
+  field: 'Balanced',
+  variation: 'Mixed',
+  pacePlan: 'Seam',
+  spinPlan: 'Attack stumps',
 }
 
 const tacticModifiers = (tactics: BattingTactics): ConditionModifiers => {
@@ -74,6 +85,49 @@ const tacticModifiers = (tactics: BattingTactics): ConditionModifiers => {
     deepCatch: shots.deepCatch,
     runOut: running.runOut,
   }
+}
+
+const bowlingTacticModifiers = (tactics: BowlingTactics): ConditionModifiers => {
+  const length = {
+    Full: { boundary: 1.08, lbwBowled: 1.12, swing: 1.05 },
+    Good: { dot: 1.05, wicket: 1.04, edge: 1.08 },
+    Short: { dot: 0.92, boundary: 1.08, deepCatch: 1.12, wicket: 1.02 },
+    Yorker: { boundary: 0.9, wicket: 1.06, lbwBowled: 1.18, noBall: 1.08 },
+  }[tactics.length]
+
+  const line = {
+    Stumps: { dot: 1.04, lbwBowled: 1.16, wide: 0.82 },
+    'Fourth stump': { edge: 1.14, wicket: 1.04, dot: 1.02 },
+    'Wide channel': { boundary: 0.94, edge: 1.06, wide: 1.32, dot: 1.05 },
+  }[tactics.line]
+
+  const field = {
+    Attacking: { wicket: 1.16, boundary: 1.12, single: 0.94, deepCatch: 0.9 },
+    Balanced: { wicket: 1, boundary: 1, single: 1 },
+    Defensive: { wicket: 0.86, boundary: 0.86, single: 1.12, deepCatch: 1.14 },
+  }[tactics.field]
+
+  const variation = {
+    Stock: { wide: 0.84, noBall: 0.9, timing: 1.04 },
+    Mixed: { timing: 1, wicket: 1 },
+    'Heavy variation': { timing: 0.92, wicket: 1.08, wide: 1.18, noBall: 1.08 },
+  }[tactics.variation]
+
+  const pace = {
+    'Hit deck': { pace: 1.12, deepCatch: 1.08, boundary: 1.04 },
+    Swing: { swing: 1.18, edge: 1.14, lbwBowled: 1.05 },
+    Seam: { seam: 1.18, edge: 1.1, dot: 1.04 },
+    'Change-ups': { timing: 0.9, wicket: 1.03, wide: 1.08 },
+  }[tactics.pacePlan]
+
+  const spin = {
+    'Attack stumps': { spin: 1.08, lbwBowled: 1.1, wicket: 1.04 },
+    'Defend into pitch': { spin: 1.04, dot: 1.08, boundary: 0.92 },
+    'Use flight': { spin: 1.12, wicket: 1.1, six: 1.1 },
+    'Fire it in': { dot: 1.07, boundary: 0.95, wicket: 0.94 },
+  }[tactics.spinPlan]
+
+  return { ...length, ...line, ...field, ...variation, ...pace, ...spin }
 }
 
 const combineModifiers = (base: ConditionModifiers, next: ConditionModifiers, scale = 1): ConditionModifiers => {
@@ -237,6 +291,19 @@ export const simulateInnings = (
   tactics: BattingTactics,
   conditions: Partial<MatchConditions> = {},
 ): SimulationResult => {
+  const state = createInningsState(venue, format, weatherId, pitchId, tactics, conditions)
+  advanceInnings(state, { mode: 'innings', battingTactics: tactics })
+  return inningsStateToResult(state)
+}
+
+export const createInningsState = (
+  venue: Venue,
+  format: MatchFormat,
+  weatherId: WeatherType,
+  pitchId: PitchType,
+  tactics: BattingTactics,
+  conditions: Partial<MatchConditions> = {},
+): InningsState => {
   const matchConditions = { ...defaultConditions, ...conditions }
   const weather = weatherProfiles.find((item) => item.id === weatherId) ?? weatherProfiles[0]
   const pitch = pitchProfiles.find((item) => item.id === pitchId) ?? pitchProfiles[0]
@@ -245,14 +312,69 @@ export const simulateInnings = (
   const random = createSeededRandom(seed)
   const par = parForFormat(venue, format)
   const forecast = buildTestForecast(venue, weatherId)
-  const activeDay = format === 'Test' ? forecast[0] : null
+  const batting: BatterScore[] = genericBatters.map((batter) => ({ ...batter, runs: 0, balls: 0, fours: 0, sixes: 0 }))
+  const bowling: BowlerFigures[] = genericBowlers.map((bowler) => ({ ...bowler, balls: 0, maidens: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }))
 
+  return {
+    score: 0,
+    wickets: 0,
+    legalBalls: 0,
+    strikerIndex: 0,
+    nonStrikerIndex: 1,
+    nextBatterIndex: 2,
+    partnershipStartScore: 0,
+    partnershipStartBalls: 0,
+    partnershipBatters: [batting[0].name, batting[1].name],
+    completed: false,
+    maxLegalBalls: maxLegalBalls(format),
+    par,
+    metadata: buildMetadata(seed, format, venue, weatherId, pitchId, tactics, matchConditions),
+    forecast,
+    scorecard: {
+      batting,
+      bowling,
+      extras: { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 },
+      fallOfWickets: [],
+      partnerships: [],
+      balls: [],
+    },
+    conditionReadout: [
+      `${venue.name}: pace ${venue.paceCarry}/10, swing ${venue.swing}/10, spin ${venue.spin}/10, batting ${venue.battingEase}/10.`,
+      `${weather.id}: ${weather.summary}`,
+      `${pitch.id} pitch: ${pitch.summary}`,
+      `${matchConditions.matchTime} match with ${matchConditions.outfield.toLowerCase()} outfield.`,
+      `Format scale: ${format} applies ${Math.round(scale * 100)}% of environmental force.`,
+    ],
+    tacticalReadout: [
+      `${tactics.aggression} intent with ${tactics.shots.toLowerCase()} shots.`,
+      `Pace plan: ${tactics.pacePlan}; spin plan: ${tactics.spinPlan}.`,
+      `Running risk: ${tactics.running}.`,
+      `Difficulty: ${matchConditions.difficulty} changes guidance/AI quality later, not hidden result rigging.`,
+    ],
+    random,
+  }
+}
+
+const venueForState = (state: InningsState) => venues.find((item) => item.id === state.metadata.venueId) ?? venues[0]
+
+const modifiersForDelivery = (
+  state: InningsState,
+  battingTactics: BattingTactics,
+  bowlingTactics: BowlingTactics,
+): { modifiers: ConditionModifiers; battingFactor: number; wicketPressure: number } => {
+  const venue = venueForState(state)
+  const weather = weatherProfiles.find((item) => item.id === state.metadata.weatherId) ?? weatherProfiles[0]
+  const pitch = pitchProfiles.find((item) => item.id === state.metadata.pitchId) ?? pitchProfiles[0]
+  const scale = formatScale[state.metadata.format]
+  const activeDay = state.metadata.format === 'Test' ? state.forecast[Math.min(4, Math.floor(state.legalBalls / 90))] : null
   let modifiers: ConditionModifiers = {}
+
   modifiers = combineModifiers(modifiers, weather.modifiers, scale)
   modifiers = combineModifiers(modifiers, pitch.modifiers, scale)
-  modifiers = combineModifiers(modifiers, matchTimeModifiers[matchConditions.matchTime], scale)
-  modifiers = combineModifiers(modifiers, outfieldModifiers[matchConditions.outfield], 1)
-  modifiers = combineModifiers(modifiers, tacticModifiers(tactics), 1)
+  modifiers = combineModifiers(modifiers, matchTimeModifiers[state.metadata.conditions.matchTime], scale)
+  modifiers = combineModifiers(modifiers, outfieldModifiers[state.metadata.conditions.outfield], 1)
+  modifiers = combineModifiers(modifiers, tacticModifiers(battingTactics), 1)
+  modifiers = combineModifiers(modifiers, bowlingTacticModifiers(bowlingTactics), 1)
 
   const venueBatting = venue.battingEase / 7
   const venueBowlingThreat = Math.max(venue.paceCarry, venue.seam, venue.swing, venue.spin) / 7
@@ -268,191 +390,229 @@ export const simulateInnings = (
     2.5,
   )
 
-  const batting: BatterScore[] = genericBatters.map((batter) => ({ ...batter, runs: 0, balls: 0, fours: 0, sixes: 0 }))
-  const bowling: BowlerFigures[] = genericBowlers.map((bowler) => ({ ...bowler, balls: 0, maidens: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }))
-  const events: BallEvent[] = []
-  const fallOfWickets: FallOfWicket[] = []
-  const partnerships: Partnership[] = []
-  const extras = { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 }
+  return { modifiers, battingFactor, wicketPressure }
+}
+
+const recalculateMaidens = (scorecard: InningsScorecard) => {
   const overRuns = new Map<string, number>()
   const overLegalBalls = new Map<string, number>()
-
-  let score = 0
-  let wickets = 0
   let legalBalls = 0
-  let strikerIndex = 0
-  let nonStrikerIndex = 1
-  let nextBatterIndex = 2
-  let partnershipStartScore = 0
-  let partnershipStartBalls = 0
-  let partnershipBatters = [batting[strikerIndex].name, batting[nonStrikerIndex].name]
 
-  const maxBalls = maxLegalBalls(format)
-
-  while (legalBalls < maxBalls && wickets < 10) {
-    const phase = legalBalls / maxBalls
+  for (const event of scorecard.balls) {
     const overNumber = Math.floor(legalBalls / 6)
-    const bowlerIndex = overNumber % bowling.length
-    const bowler = bowling[bowlerIndex]
-    const base = formatBaseWeights(format)
-    const deathOvers = format !== 'Test' && phase > 0.8
-    const newBall = phase < 0.12
-    const weights: Record<Outcome, number> = {
-      dot: base.dot * (modifiers.dot ?? 1) * clamp(wicketPressure / battingFactor, 0.65, 1.45),
-      single: base.single * (modifiers.single ?? 1) * clamp(battingFactor, 0.75, 1.25),
-      two: base.two * (venue.outfield <= 7 ? 1.08 : 0.95) * (modifiers.single ?? 1),
-      three: base.three * (venue.outfield >= 8 ? 1.1 : 0.85),
-      four: base.four * (modifiers.boundary ?? 1) * battingFactor * (deathOvers ? 1.12 : 1),
-      six: base.six * (modifiers.six ?? 1) * battingFactor * (deathOvers ? 1.18 : 1),
-      wicket: base.wicket * wicketPressure * (newBall ? clamp((venue.seam + venue.swing) / 12, 0.9, 1.25) : 1),
-      wide: base.wide * (matchConditions.difficulty === 'Casual' ? 0.9 : 1),
-      'no-ball': base.noBall,
-      bye: base.bye * (modifiers.fieldingDifficulty ?? 1),
-      'leg-bye': base.legBye,
-    }
-    const outcome = chooseOutcome(random, weights)
-    const legal = outcome !== 'wide' && outcome !== 'no-ball'
-    const overAfterBall = legal ? legalBalls + 1 : legalBalls
-    const event: BallEvent = {
-      inningsBall: events.length + 1,
-      over: overString(legal ? overAfterBall : legalBalls),
-      legal,
-      strikerId: batting[strikerIndex].id,
-      nonStrikerId: batting[nonStrikerIndex].id,
-      bowlerId: bowler.id,
-      runsBat: 0,
-      runsExtras: 0,
-      totalRuns: 0,
-      tags: [],
-      commentary: '',
-    }
-
-    if (outcome === 'wide') {
-      event.runsExtras = 1
-      event.extraType = 'wide'
-      event.tags.push('line-error')
-      extras.wides += 1
-      bowler.wides += 1
-      bowler.runs += 1
-    } else if (outcome === 'no-ball') {
-      event.runsExtras = 1
-      event.extraType = 'no-ball'
-      event.tags.push('overstep')
-      extras.noBalls += 1
-      bowler.noBalls += 1
-      bowler.runs += 1
-    } else if (outcome === 'bye' || outcome === 'leg-bye') {
-      event.runsExtras = outcome === 'bye' ? 1 : 1
-      event.extraType = outcome
-      event.tags.push(outcome === 'bye' ? 'keeper-miss' : 'body-line')
-      extras[outcome === 'bye' ? 'byes' : 'legByes'] += event.runsExtras
-    } else if (outcome === 'wicket') {
-      const dismissal = pickWicketType(random, modifiers)
-      const dismissed = batting[strikerIndex]
-      event.wicketType = dismissal
-      event.dismissedBatterId = dismissed.id
-      event.tags.push(dismissal === 'caught-behind' ? 'edge' : dismissal === 'lbw' || dismissal === 'bowled' ? 'stumps' : 'wicket')
-      dismissed.balls += 1
-      dismissed.dismissal = `${dismissal} b ${bowler.name}`
-      if (dismissal !== 'run-out') {
-        bowler.wickets += 1
-      }
-      wickets += 1
-      fallOfWickets.push({ wicket: wickets, score, over: event.over, batter: dismissed.name })
-      updatePartnerships(partnerships, wickets - 1, partnershipStartScore, partnershipStartBalls, wickets, score, legalBalls + 1, partnershipBatters)
-      partnershipStartScore = score
-      partnershipStartBalls = legalBalls + 1
-      strikerIndex = nextBatterIndex
-      nextBatterIndex += 1
-      partnershipBatters = wickets < 10 ? [batting[strikerIndex].name, batting[nonStrikerIndex].name] : partnershipBatters
-    } else {
-      const runs = outcome === 'single' ? 1 : outcome === 'two' ? 2 : outcome === 'three' ? 3 : outcome === 'four' ? 4 : outcome === 'six' ? 6 : 0
-      const striker = batting[strikerIndex]
-      event.runsBat = runs
-      striker.runs += runs
-      striker.balls += 1
-      if (runs === 4) striker.fours += 1
-      if (runs === 6) striker.sixes += 1
-      bowler.runs += runs
-      if (runs === 4 || runs === 6) event.tags.push('boundary')
-      if (runs % 2 === 1) {
-        ;[strikerIndex, nonStrikerIndex] = [nonStrikerIndex, strikerIndex]
-      }
-    }
-
-    event.totalRuns = event.runsBat + event.runsExtras
-    score += event.totalRuns
-    extras.total += event.runsExtras
-    const overKey = `${bowler.id}-${overNumber}`
+    const overKey = `${event.bowlerId}-${overNumber}`
     const bowlerConceded = event.runsBat + (event.extraType === 'wide' || event.extraType === 'no-ball' ? event.runsExtras : 0)
     overRuns.set(overKey, (overRuns.get(overKey) ?? 0) + bowlerConceded)
 
-    if (legal) {
+    if (event.legal) {
       legalBalls += 1
-      bowler.balls += 1
       overLegalBalls.set(overKey, (overLegalBalls.get(overKey) ?? 0) + 1)
-      if (legalBalls % 6 === 0) {
-        ;[strikerIndex, nonStrikerIndex] = [nonStrikerIndex, strikerIndex]
-      }
     }
-
-    event.commentary =
-      outcome === 'wicket'
-        ? `${event.over}: wicket, ${event.wicketType} under ${pitch.id.toLowerCase()} ${weather.id.toLowerCase()} pressure.`
-        : event.totalRuns === 0
-          ? `${event.over}: dot ball, ${venue.name} conditions keep the batter honest.`
-          : `${event.over}: ${event.totalRuns} run${event.totalRuns === 1 ? '' : 's'}${event.extraType ? ` (${event.extraType})` : ''}.`
-    events.push(event)
   }
 
-  if (wickets < 10) {
-    updatePartnerships(partnerships, wickets, partnershipStartScore, partnershipStartBalls, wickets + 1, score, legalBalls, partnershipBatters)
-  }
-
-  for (const bowler of bowling) {
+  for (const bowler of scorecard.bowling) {
     bowler.maidens = Array.from(overRuns.entries()).filter(
       ([key, runs]) => key.startsWith(`${bowler.id}-`) && runs === 0 && overLegalBalls.get(key) === 6,
     ).length
   }
+}
 
-  const scorecard: InningsScorecard = {
-    batting,
-    bowling,
-    extras,
-    fallOfWickets,
-    partnerships,
-    balls: events,
+const rebuildOpenPartnership = (state: InningsState) => {
+  const completedPartnerships = state.scorecard.partnerships.filter((partnership) => partnership.wicket <= state.wickets)
+  state.scorecard.partnerships = completedPartnerships
+
+  if (!state.scorecard.balls.length || state.wickets >= 10) return
+
+  updatePartnerships(
+    state.scorecard.partnerships,
+    state.wickets,
+    state.partnershipStartScore,
+    state.partnershipStartBalls,
+    state.wickets + 1,
+    state.score,
+    state.legalBalls,
+    state.partnershipBatters,
+  )
+}
+
+export const defaultBowlerForOver = (state: InningsState, overNumber = Math.floor(state.legalBalls / 6)) =>
+  state.scorecard.bowling[overNumber % state.scorecard.bowling.length]?.id ?? state.scorecard.bowling[0]?.id ?? ''
+
+const simulateDelivery = (state: InningsState, command: AdvanceInningsCommand) => {
+  const venue = venueForState(state)
+  const weather = weatherProfiles.find((item) => item.id === state.metadata.weatherId) ?? weatherProfiles[0]
+  const pitch = pitchProfiles.find((item) => item.id === state.metadata.pitchId) ?? pitchProfiles[0]
+  const bowlingTactics = command.bowlingTactics ?? defaultBowlingTactics
+  const { modifiers, battingFactor, wicketPressure } = modifiersForDelivery(state, command.battingTactics, bowlingTactics)
+  const phase = state.legalBalls / state.maxLegalBalls
+  const overNumber = Math.floor(state.legalBalls / 6)
+  const bowlerId = command.bowlerId || defaultBowlerForOver(state, overNumber)
+  const bowler = state.scorecard.bowling.find((item) => item.id === bowlerId) ?? state.scorecard.bowling[0]
+  const base = formatBaseWeights(state.metadata.format)
+  const deathOvers = state.metadata.format !== 'Test' && phase > 0.8
+  const newBall = phase < 0.12
+  const weights: Record<Outcome, number> = {
+    dot: base.dot * (modifiers.dot ?? 1) * clamp(wicketPressure / battingFactor, 0.65, 1.45),
+    single: base.single * (modifiers.single ?? 1) * clamp(battingFactor, 0.75, 1.25),
+    two: base.two * (venue.outfield <= 7 ? 1.08 : 0.95) * (modifiers.single ?? 1),
+    three: base.three * (venue.outfield >= 8 ? 1.1 : 0.85),
+    four: base.four * (modifiers.boundary ?? 1) * battingFactor * (deathOvers ? 1.12 : 1),
+    six: base.six * (modifiers.six ?? 1) * battingFactor * (deathOvers ? 1.18 : 1),
+    wicket: base.wicket * wicketPressure * (newBall ? clamp((venue.seam + venue.swing) / 12, 0.9, 1.25) : 1),
+    wide: base.wide * (state.metadata.conditions.difficulty === 'Casual' ? 0.9 : 1) * (modifiers.wide ?? 1),
+    'no-ball': base.noBall * (modifiers.noBall ?? 1),
+    bye: base.bye * (modifiers.fieldingDifficulty ?? 1),
+    'leg-bye': base.legBye,
   }
-  const oversUsed = legalBalls / 6
-  const metadata = buildMetadata(seed, format, venue, weatherId, pitchId, tactics, matchConditions)
+  const outcome = chooseOutcome(state.random, weights)
+  const legal = outcome !== 'wide' && outcome !== 'no-ball'
+  const overAfterBall = legal ? state.legalBalls + 1 : state.legalBalls
+  const event: BallEvent = {
+    inningsBall: state.scorecard.balls.length + 1,
+    over: overString(legal ? overAfterBall : state.legalBalls),
+    legal,
+    strikerId: state.scorecard.batting[state.strikerIndex].id,
+    nonStrikerId: state.scorecard.batting[state.nonStrikerIndex].id,
+    bowlerId: bowler.id,
+    runsBat: 0,
+    runsExtras: 0,
+    totalRuns: 0,
+    tags: [],
+    commentary: '',
+  }
+
+  if (outcome === 'wide') {
+    event.runsExtras = 1
+    event.extraType = 'wide'
+    event.tags.push('line-error')
+    state.scorecard.extras.wides += 1
+    bowler.wides += 1
+    bowler.runs += 1
+  } else if (outcome === 'no-ball') {
+    event.runsExtras = 1
+    event.extraType = 'no-ball'
+    event.tags.push('overstep')
+    state.scorecard.extras.noBalls += 1
+    bowler.noBalls += 1
+    bowler.runs += 1
+  } else if (outcome === 'bye' || outcome === 'leg-bye') {
+    event.runsExtras = 1
+    event.extraType = outcome
+    event.tags.push(outcome === 'bye' ? 'keeper-miss' : 'body-line')
+    state.scorecard.extras[outcome === 'bye' ? 'byes' : 'legByes'] += event.runsExtras
+  } else if (outcome === 'wicket') {
+    const dismissal = pickWicketType(state.random, modifiers)
+    const dismissed = state.scorecard.batting[state.strikerIndex]
+    event.wicketType = dismissal
+    event.dismissedBatterId = dismissed.id
+    event.tags.push(dismissal === 'caught-behind' ? 'edge' : dismissal === 'lbw' || dismissal === 'bowled' ? 'stumps' : 'wicket')
+    dismissed.balls += 1
+    dismissed.dismissal = `${dismissal} b ${bowler.name}`
+    if (dismissal !== 'run-out') bowler.wickets += 1
+    state.wickets += 1
+    state.scorecard.fallOfWickets.push({ wicket: state.wickets, score: state.score, over: event.over, batter: dismissed.name })
+    updatePartnerships(
+      state.scorecard.partnerships,
+      state.wickets - 1,
+      state.partnershipStartScore,
+      state.partnershipStartBalls,
+      state.wickets,
+      state.score,
+      state.legalBalls + 1,
+      state.partnershipBatters,
+    )
+    state.partnershipStartScore = state.score
+    state.partnershipStartBalls = state.legalBalls + 1
+    state.strikerIndex = state.nextBatterIndex
+    state.nextBatterIndex += 1
+    state.partnershipBatters =
+      state.wickets < 10
+        ? [state.scorecard.batting[state.strikerIndex].name, state.scorecard.batting[state.nonStrikerIndex].name]
+        : state.partnershipBatters
+  } else {
+    const runs = outcome === 'single' ? 1 : outcome === 'two' ? 2 : outcome === 'three' ? 3 : outcome === 'four' ? 4 : outcome === 'six' ? 6 : 0
+    const striker = state.scorecard.batting[state.strikerIndex]
+    event.runsBat = runs
+    striker.runs += runs
+    striker.balls += 1
+    if (runs === 4) striker.fours += 1
+    if (runs === 6) striker.sixes += 1
+    bowler.runs += runs
+    if (runs === 4 || runs === 6) event.tags.push('boundary')
+    if (runs % 2 === 1) {
+      ;[state.strikerIndex, state.nonStrikerIndex] = [state.nonStrikerIndex, state.strikerIndex]
+    }
+  }
+
+  event.totalRuns = event.runsBat + event.runsExtras
+  state.score += event.totalRuns
+  state.scorecard.extras.total += event.runsExtras
+
+  if (legal) {
+    state.legalBalls += 1
+    bowler.balls += 1
+    if (state.legalBalls % 6 === 0) {
+      ;[state.strikerIndex, state.nonStrikerIndex] = [state.nonStrikerIndex, state.strikerIndex]
+    }
+  }
+
+  event.commentary =
+    outcome === 'wicket'
+      ? `${event.over}: wicket, ${event.wicketType} from ${bowlingTactics.length.toLowerCase()} ${bowlingTactics.line.toLowerCase()} bowling under ${pitch.id.toLowerCase()} ${weather.id.toLowerCase()} pressure.`
+      : event.totalRuns === 0
+        ? `${event.over}: dot ball, ${venue.name} conditions and ${bowlingTactics.field.toLowerCase()} field keep the batter honest.`
+        : `${event.over}: ${event.totalRuns} run${event.totalRuns === 1 ? '' : 's'}${event.extraType ? ` (${event.extraType})` : ''}.`
+  state.scorecard.balls.push(event)
+  recalculateMaidens(state.scorecard)
+  state.completed = state.legalBalls >= state.maxLegalBalls || state.wickets >= 10
+}
+
+export const advanceInnings = (state: InningsState, command: AdvanceInningsCommand): InningsState => {
+  if (state.completed) return state
+  state.scorecard.partnerships = state.scorecard.partnerships.filter((partnership) => partnership.wicket <= state.wickets)
+
+  const startLegalBalls = state.legalBalls
+  const targetLegalBalls =
+    command.mode === 'legal-balls'
+      ? startLegalBalls + Math.max(0, command.legalBalls ?? 0)
+      : command.mode === 'overs'
+        ? startLegalBalls + Math.max(0, command.overs ?? 0) * 6
+        : state.maxLegalBalls
+  const startWickets = state.wickets
+
+  while (!state.completed) {
+    simulateDelivery(state, command)
+    if (command.mode === 'wicket' && state.wickets > startWickets) break
+    if ((command.mode === 'legal-balls' || command.mode === 'overs') && state.legalBalls >= targetLegalBalls) break
+  }
+
+  state.completed = state.legalBalls >= state.maxLegalBalls || state.wickets >= 10
+  rebuildOpenPartnership(state)
+  return state
+}
+
+export const inningsStateToResult = (state: InningsState): SimulationResult => {
+  const venue = venueForState(state)
+  const weatherId = state.metadata.weatherId
+  const pitchId = state.metadata.pitchId
+  const oversUsed = state.legalBalls / 6
 
   return {
-    score,
-    wickets,
-    overs: overString(legalBalls),
-    par,
-    runRate: oversUsed > 0 ? (score / oversUsed).toFixed(2) : '0.00',
-    forecast,
-    scorecard,
-    metadata,
-    conditionReadout: [
-      `${venue.name}: pace ${venue.paceCarry}/10, swing ${venue.swing}/10, spin ${venue.spin}/10, batting ${venue.battingEase}/10.`,
-      `${weather.id}: ${weather.summary}`,
-      `${pitch.id} pitch: ${pitch.summary}`,
-      `${matchConditions.matchTime} match with ${matchConditions.outfield.toLowerCase()} outfield.`,
-      `Format scale: ${format} applies ${Math.round(scale * 100)}% of environmental force.`,
-    ],
-    tacticalReadout: [
-      `${tactics.aggression} intent with ${tactics.shots.toLowerCase()} shots.`,
-      `Pace plan: ${tactics.pacePlan}; spin plan: ${tactics.spinPlan}.`,
-      `Running risk: ${tactics.running}.`,
-      `Difficulty: ${matchConditions.difficulty} changes guidance/AI quality later, not hidden result rigging.`,
-    ],
+    score: state.score,
+    wickets: state.wickets,
+    overs: overString(state.legalBalls),
+    par: state.par,
+    runRate: oversUsed > 0 ? (state.score / oversUsed).toFixed(2) : '0.00',
+    forecast: state.forecast,
+    scorecard: state.scorecard,
+    metadata: state.metadata,
+    conditionReadout: state.conditionReadout,
+    tacticalReadout: state.tacticalReadout,
     log: [
       `Powerplay read: ${venue.swing + venue.seam >= 14 || weatherId === 'Overcast' ? 'new ball threat is high' : 'batters can settle normally'}.`,
       `Middle phase: ${venue.spin >= 7 || pitchId === 'Dusty' ? 'spin matchups matter' : 'pace changes and field settings carry more value'}.`,
       `Toss lean: ${venue.toss}${weatherId === 'Dew' ? ' with extra chase value under dew' : ''}.`,
-      ...events.slice(-8).map((event) => event.commentary),
+      ...state.scorecard.balls.slice(-8).map((event) => event.commentary),
     ],
   }
 }

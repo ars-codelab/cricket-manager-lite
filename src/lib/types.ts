@@ -10,6 +10,12 @@ export type RunningRisk = 'Conservative' | 'Normal' | 'Sharp'
 export type Difficulty = 'Casual' | 'Standard' | 'Expert' | 'Simulation'
 export type MatchTime = 'Day' | 'Day-Night' | 'Night'
 export type OutfieldCondition = 'Slow' | 'Normal' | 'Fast'
+export type BowlingLength = 'Full' | 'Good' | 'Short' | 'Yorker'
+export type BowlingLine = 'Stumps' | 'Fourth stump' | 'Wide channel'
+export type FieldSetting = 'Attacking' | 'Balanced' | 'Defensive'
+export type VariationUse = 'Stock' | 'Mixed' | 'Heavy variation'
+export type PaceBowlingPlan = 'Hit deck' | 'Swing' | 'Seam' | 'Change-ups'
+export type SpinBowlingPlan = 'Attack stumps' | 'Defend into pitch' | 'Use flight' | 'Fire it in'
 export type ExtraType = 'wide' | 'no-ball' | 'bye' | 'leg-bye'
 export type WicketType = 'bowled' | 'lbw' | 'caught' | 'caught-behind' | 'stumped' | 'run-out' | 'hit-wicket'
 
@@ -54,6 +60,8 @@ export type ConditionModifiers = {
   lbwBowled?: number
   deepCatch?: number
   runOut?: number
+  wide?: number
+  noBall?: number
   timing?: number
   pace?: number
   swing?: number
@@ -69,6 +77,15 @@ export type BattingTactics = {
   pacePlan: PacePlan
   spinPlan: SpinPlan
   running: RunningRisk
+}
+
+export type BowlingTactics = {
+  length: BowlingLength
+  line: BowlingLine
+  field: FieldSetting
+  variation: VariationUse
+  pacePlan: PaceBowlingPlan
+  spinPlan: SpinBowlingPlan
 }
 
 export type MatchConditions = {
@@ -183,4 +200,34 @@ export type SimulationResult = {
   tacticalReadout: string[]
   forecast: TestDayCondition[]
   log: string[]
+}
+
+export type InningsState = {
+  score: number
+  wickets: number
+  legalBalls: number
+  strikerIndex: number
+  nonStrikerIndex: number
+  nextBatterIndex: number
+  partnershipStartScore: number
+  partnershipStartBalls: number
+  partnershipBatters: string[]
+  completed: boolean
+  maxLegalBalls: number
+  par: number
+  metadata: SimulationMetadata
+  forecast: TestDayCondition[]
+  scorecard: InningsScorecard
+  conditionReadout: string[]
+  tacticalReadout: string[]
+  random: () => number
+}
+
+export type AdvanceInningsCommand = {
+  mode: 'legal-balls' | 'overs' | 'wicket' | 'innings'
+  legalBalls?: number
+  overs?: number
+  battingTactics: BattingTactics
+  bowlerId?: string
+  bowlingTactics?: BowlingTactics
 }

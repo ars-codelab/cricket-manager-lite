@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { venues } from './data'
-import { buildTestForecast, createSeededRandom, simulateInnings } from './simulation'
-import type { BattingTactics } from './types'
+import { advanceInnings, buildTestForecast, createInningsState, createSeededRandom, defaultBowlingTactics, simulateInnings } from './simulation'
+import type { BattingTactics, BowlingTactics } from './types'
 
 const tactics: BattingTactics = {
   aggression: 'Positive',
@@ -67,6 +67,66 @@ describe('simulateInnings', () => {
     expect(bowlerBalls).toBe(legalBalls)
     expect(result.overs).toBe(`${Math.floor(legalBalls / 6)}.${legalBalls % 6}`)
     expect(result.metadata.engineVersion).toMatch(/^\d+\.\d+\.\d+$/)
+  })
+})
+
+describe('stateful innings engine', () => {
+  it('advances one over without precomputing the rest of the innings', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const state = createInningsState(venue, 'T20', 'Humid', 'Flat', tactics)
+
+    advanceInnings(state, { mode: 'overs', overs: 1, battingTactics: tactics })
+
+    expect(state.legalBalls).toBe(6)
+    expect(state.scorecard.balls.length).toBeGreaterThanOrEqual(6)
+    expect(state.completed).toBe(false)
+  })
+
+  it('can stop on the next wicket', () => {
+    const venue = venues.find((item) => item.id === 'lords') ?? venues[0]
+    const state = createInningsState(venue, 'T20', 'Overcast', 'Green', {
+      ...tactics,
+      aggression: 'Attack',
+      shots: 'Aerial',
+    })
+
+    advanceInnings(state, { mode: 'wicket', battingTactics: { ...tactics, aggression: 'Attack', shots: 'Aerial' } })
+
+    expect(state.wickets).toBeGreaterThanOrEqual(1)
+    expect(state.scorecard.balls.at(-1)?.wicketType).toBeTruthy()
+  })
+
+  it('applies a selected bowler to the next simulated over', () => {
+    const venue = venues.find((item) => item.id === 'chepauk') ?? venues[0]
+    const state = createInningsState(venue, 'T20', 'Dry', 'Dusty', tactics)
+
+    advanceInnings(state, { mode: 'overs', overs: 1, battingTactics: tactics, bowlerId: 'bowler-4' })
+
+    expect(new Set(state.scorecard.balls.map((ball) => ball.bowlerId))).toEqual(new Set(['bowler-4']))
+    expect(state.scorecard.bowling.find((bowler) => bowler.id === 'bowler-4')?.balls).toBe(6)
+  })
+
+  it('lets live batting and bowling plans change future deterministic outcomes', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const defensive = createInningsState(venue, 'T20', 'Humid', 'Flat', tactics)
+    const attacking = createInningsState(venue, 'T20', 'Humid', 'Flat', tactics)
+    const defensiveBowling: BowlingTactics = { ...defaultBowlingTactics, field: 'Defensive', length: 'Good' }
+    const attackingBowling: BowlingTactics = { ...defaultBowlingTactics, field: 'Attacking', length: 'Yorker' }
+
+    advanceInnings(defensive, {
+      mode: 'overs',
+      overs: 4,
+      battingTactics: { ...tactics, aggression: 'Defensive', shots: 'Ground' },
+      bowlingTactics: defensiveBowling,
+    })
+    advanceInnings(attacking, {
+      mode: 'overs',
+      overs: 4,
+      battingTactics: { ...tactics, aggression: 'Attack', shots: 'Aerial' },
+      bowlingTactics: attackingBowling,
+    })
+
+    expect(attacking.scorecard.balls).not.toEqual(defensive.scorecard.balls)
   })
 })
 
