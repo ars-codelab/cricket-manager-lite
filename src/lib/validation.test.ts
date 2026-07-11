@@ -7,6 +7,15 @@ describe('fixture validation', () => {
     expect(validateVenues(venues)).toEqual([])
   })
 
+  it('keeps the curated research venue matrix available', () => {
+    const countries = new Set(venues.map((venue) => venue.country))
+
+    expect(venues).toHaveLength(29)
+    expect(countries).toEqual(
+      new Set(['India', 'Australia', 'England', 'South Africa', 'UAE', 'Pakistan', 'Sri Lanka', 'Bangladesh', 'Barbados', 'New Zealand']),
+    )
+  })
+
   it('accepts current weather and pitch fixtures', () => {
     expect(validateWeatherProfiles(weatherProfiles)).toEqual([])
     expect(validatePitchProfiles(pitchProfiles)).toEqual([])
