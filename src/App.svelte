@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { parForFormat, pitchProfiles, venues, weatherProfiles } from './lib/data'
   import { simulateInnings } from './lib/simulation'
   import type {
@@ -16,6 +17,23 @@
   } from './lib/types'
 
   type View = 'home' | 'setup' | 'match' | 'insights'
+  type SavedSetup = {
+    format: MatchFormat
+    venueId: string
+    weather: WeatherType
+    pitch: PitchType
+    matchTime: MatchTime
+    outfield: OutfieldCondition
+    difficulty: Difficulty
+    aggression: Aggression
+    shots: ShotSelection
+    pacePlan: PacePlan
+    spinPlan: SpinPlan
+    running: RunningRisk
+    savedAt: string
+  }
+
+  const saveKey = 'cricket-manager-lite:last-setup'
 
   const formats: MatchFormat[] = ['T20', 'ODI', 'Test']
   const matchTimes: MatchTime[] = ['Day', 'Day-Night', 'Night']
@@ -40,6 +58,8 @@
   let pacePlan: PacePlan = 'Play late'
   let spinPlan: SpinPlan = 'Rotate strike'
   let running: RunningRisk = 'Normal'
+  let saveMessage = 'No saved setup loaded.'
+  let importInput: HTMLInputElement | null = null
 
   $: venue = venues.find((item) => item.id === venueId) ?? venues[0]
   $: result = simulateInnings(venue, format, weather, pitch, { aggression, shots, pacePlan, spinPlan, running }, { matchTime, outfield, difficulty })
@@ -50,6 +70,93 @@
   $: venueSummary = `${venue.city}, ${venue.country} · ${weather} · ${pitch} pitch`
 
   const bowlingOvers = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`
+
+  const currentSetup = (): SavedSetup => ({
+    format,
+    venueId,
+    weather,
+    pitch,
+    matchTime,
+    outfield,
+    difficulty,
+    aggression,
+    shots,
+    pacePlan,
+    spinPlan,
+    running,
+    savedAt: new Date().toISOString(),
+  })
+
+  const applySetup = (setup: SavedSetup) => {
+    format = setup.format
+    venueId = setup.venueId
+    weather = setup.weather
+    pitch = setup.pitch
+    matchTime = setup.matchTime
+    outfield = setup.outfield
+    difficulty = setup.difficulty
+    aggression = setup.aggression
+    shots = setup.shots
+    pacePlan = setup.pacePlan
+    spinPlan = setup.spinPlan
+    running = setup.running
+  }
+
+  const saveSetup = () => {
+    const setup = currentSetup()
+    localStorage.setItem(saveKey, JSON.stringify(setup))
+    saveMessage = `Saved ${new Date(setup.savedAt).toLocaleString()}.`
+  }
+
+  const loadSetup = () => {
+    const raw = localStorage.getItem(saveKey)
+    if (!raw) {
+      saveMessage = 'No saved setup found.'
+      return
+    }
+
+    try {
+      const setup = JSON.parse(raw) as SavedSetup
+      applySetup(setup)
+      saveMessage = `Loaded setup from ${new Date(setup.savedAt).toLocaleString()}.`
+    } catch {
+      saveMessage = 'Saved setup is not readable.'
+    }
+  }
+
+  const exportSetup = () => {
+    const blob = new Blob([JSON.stringify(currentSetup(), null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'cricket-manager-lite-setup.json'
+    anchor.click()
+    URL.revokeObjectURL(url)
+    saveMessage = 'Exported setup JSON.'
+  }
+
+  const importSetup = async (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+
+    try {
+      const setup = JSON.parse(await file.text()) as SavedSetup
+      applySetup(setup)
+      localStorage.setItem(saveKey, JSON.stringify({ ...setup, savedAt: new Date().toISOString() }))
+      saveMessage = `Imported ${file.name}.`
+    } catch {
+      saveMessage = 'Import failed. Use a Cricket Manager Lite setup JSON file.'
+    } finally {
+      input.value = ''
+    }
+  }
+
+  onMount(() => {
+    if (localStorage.getItem(saveKey)) {
+      loadSetup()
+    }
+  })
 
   const applyPreset = (preset: 'mumbai-chase' | 'lords-seamer' | 'chepauk-day-five') => {
     if (preset === 'mumbai-chase') {
@@ -131,6 +238,12 @@
       </article>
 
       <article class="feature-card">
+        <h2>Resume saved setup</h2>
+        <p>{saveMessage}</p>
+        <button type="button" on:click={loadSetup}>Load setup</button>
+      </article>
+
+      <article class="feature-card">
         <h2>Mumbai dew chase</h2>
         <p>Fast outfield, heavy dew, batting-friendly Wankhede night scenario.</p>
         <button type="button" on:click={() => applyPreset('mumbai-chase')}>Play preset</button>
@@ -142,11 +255,6 @@
         <button type="button" on:click={() => applyPreset('lords-seamer')}>Play preset</button>
       </article>
 
-      <article class="feature-card">
-        <h2>Chepauk worn turner</h2>
-        <p>Dry, worn surface where spin and batting patience dominate.</p>
-        <button type="button" on:click={() => applyPreset('chepauk-day-five')}>Play preset</button>
-      </article>
     </section>
   {/if}
 
@@ -283,6 +391,14 @@
         </label>
 
         <button class="wide-action" type="button" on:click={() => (view = 'match')}>Simulate innings</button>
+        <div class="save-actions">
+          <button type="button" on:click={saveSetup}>Save</button>
+          <button type="button" on:click={loadSetup}>Load</button>
+          <button type="button" on:click={exportSetup}>Export</button>
+          <button type="button" on:click={() => importInput?.click()}>Import</button>
+        </div>
+        <p class="save-message">{saveMessage}</p>
+        <input bind:this={importInput} class="hidden-input" type="file" accept="application/json,.json" on:change={importSetup} />
       </div>
     </section>
   {/if}

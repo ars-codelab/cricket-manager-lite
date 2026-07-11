@@ -251,6 +251,31 @@ select {
   margin-top: 8px;
 }
 
+.save-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.save-actions button {
+  min-height: 40px;
+  border-radius: 999px;
+  background: #e9f2df;
+  color: #173d30;
+  font-weight: 800;
+}
+
+.save-message {
+  margin: 10px 0 0;
+  color: #60736a;
+  font-size: 0.82rem;
+}
+
+.hidden-input {
+  display: none;
+}
+
 .insight-grid p {
   margin-bottom: 10px;
   color: #30493e;
