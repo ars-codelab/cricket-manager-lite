@@ -5,7 +5,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 
 const multiply = (base: number, modifier = 1, scale = 1) => base * (1 + (modifier - 1) * scale)
 
-const seededRandom = (seed: string) => {
+export const createSeededRandom = (seed: string) => {
   let h = 2166136261
   for (const char of seed) {
     h ^= char.charCodeAt(0)
@@ -93,7 +93,7 @@ export const simulateInnings = (
   const weather = weatherProfiles.find((item) => item.id === weatherId) ?? weatherProfiles[0]
   const pitch = pitchProfiles.find((item) => item.id === pitchId) ?? pitchProfiles[0]
   const scale = formatScale[format]
-  const random = seededRandom(`${venue.id}-${format}-${weatherId}-${pitchId}-${JSON.stringify(tactics)}`)
+  const random = createSeededRandom(`${venue.id}-${format}-${weatherId}-${pitchId}-${JSON.stringify(tactics)}`)
   const par = parForFormat(venue, format)
   const forecast = buildTestForecast(venue, weatherId)
   const activeDay = format === 'Test' ? forecast[0] : null
