@@ -1,47 +1,87 @@
-# Svelte + TS + Vite
+# Cricket Manager Lite
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+Cricket Manager Lite is an offline-first mobile web cricket management simulator. It is inspired by cricket captaincy games, but built as a lightweight static browser app that anyone can clone, download, or host on GitHub Pages.
 
-## Recommended IDE Setup
+The current prototype focuses on custom/friendly matches where venue, pitch, weather, and tactics influence a deterministic simulation.
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+## Current Status
 
-## Need an official Svelte framework?
+This project is in early active development.
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+Implemented now:
 
-## Technical considerations
+- Svelte 5 + Vite + TypeScript mobile web app.
+- Venue, pitch, weather, and batting tactic controls.
+- Deterministic projected-innings prototype.
+- Test match five-day surface forecast prototype.
+- Local design docs and backlog.
 
-**Why use this over SvelteKit?**
+Next major work:
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+- Ball-by-ball innings engine.
+- Scorecards, ball log, and commentary.
+- Expanded venue matrix and fixture validation.
+- Offline saves and GitHub Pages distribution.
 
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+## Development
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+Requirements:
 
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
+- Node.js 18.x or compatible.
+- npm.
 
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
+Install and run:
 
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `allowJs` in the TS template?**
-
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+```bash
+npm install
+npm run dev
 ```
+
+Quality checks:
+
+```bash
+npm run check
+npm run build
+```
+
+Preview production build:
+
+```bash
+npm run preview
+```
+
+## Project Docs
+
+- [Product design](docs/PRODUCT_DESIGN.md)
+- [Backlog](docs/BACKLOG.md)
+- [Engine design](docs/ENGINE_DESIGN.md)
+- [Match engine design](docs/MATCH_ENGINE_DESIGN.md)
+- [Project state](docs/PROJECT_STATE.md)
+- [Git and release workflow](docs/GIT_AND_RELEASE.md)
+- [Graphify setup](docs/GRAPHIFY.md)
+
+## Distribution Goal
+
+The app is designed to run without a runtime backend. The intended distribution paths are:
+
+- GitHub Pages for hosted play.
+- Release ZIP for download.
+- Local clone with `npm install && npm run build`.
+- Later PWA install/offline cache.
+
+## Data And Licensing
+
+The game uses curated cricket knowledge and manually reviewed seed data. It does not use official logos, copied player biographies, or live scraping during gameplay.
+
+See [data sources](docs/DATA_SOURCES.md) for source and legal guidance.
+
+## Repository Policy
+
+- Keep commits small and reversible.
+- Run checks before every stable commit.
+- Do not commit secrets, broad GitHub tokens, `node_modules`, `dist`, or generated Graphify output.
+- Prefer deterministic simulation and reviewable data changes.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
