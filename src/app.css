@@ -25,10 +25,15 @@ select {
   font: inherit;
 }
 
+button {
+  border: 0;
+  cursor: pointer;
+}
+
 .app-shell {
   width: min(1120px, 100%);
   margin: 0 auto;
-  padding: 18px;
+  padding: 18px 18px 88px;
 }
 
 .hero-panel {
@@ -92,6 +97,81 @@ h2 {
 .score-tile strong {
   font-size: 2.8rem;
   line-height: 1;
+}
+
+.hero-copy {
+  max-width: 680px;
+  margin: 18px 0 0;
+  color: #d7ebdc;
+}
+
+.bottom-nav {
+  position: sticky;
+  top: 10px;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px;
+  border: 1px solid rgba(23, 66, 52, 0.14);
+  background: rgba(248, 255, 248, 0.86);
+  backdrop-filter: blur(18px);
+}
+
+.bottom-nav button,
+.feature-card button,
+.wide-action {
+  min-height: 44px;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: #173d30;
+  color: #f8fff8;
+  font-weight: 800;
+}
+
+.bottom-nav button {
+  background: transparent;
+  color: #486155;
+}
+
+.bottom-nav button.active {
+  background: #173d30;
+  color: #f8fff8;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.feature-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid rgba(23, 66, 52, 0.14);
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(18px);
+}
+
+.feature-card.primary {
+  min-height: 260px;
+  background:
+    linear-gradient(145deg, rgba(243, 196, 79, 0.26), rgba(255, 255, 255, 0.82)),
+    radial-gradient(circle at bottom right, rgba(18, 55, 45, 0.22), transparent 20rem);
+}
+
+.feature-card h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.4rem, 4vw, 2.6rem);
+  line-height: 1;
+}
+
+.feature-card p {
+  color: #30493e;
 }
 
 .workspace,
@@ -164,6 +244,11 @@ select {
 .venue-grid b {
   color: #173d30;
   font-size: 1.15rem;
+}
+
+.wide-action {
+  width: 100%;
+  margin-top: 8px;
 }
 
 .insight-grid p {
@@ -286,7 +371,7 @@ select {
 
 @media (max-width: 760px) {
   .app-shell {
-    padding: 10px;
+    padding: 10px 10px 92px;
   }
 
   .hero-panel,
@@ -300,8 +385,20 @@ select {
     padding: 18px;
   }
 
+  .bottom-nav {
+    position: fixed;
+    inset: auto 10px 10px;
+    top: auto;
+    margin-top: 0;
+    box-shadow: 0 16px 40px rgba(18, 32, 27, 0.2);
+  }
+
   .score-tile {
     min-width: 0;
+  }
+
+  .home-grid {
+    grid-template-columns: 1fr;
   }
 
   .day-strip {
