@@ -104,7 +104,8 @@ h2 {
 
 .control-panel,
 .insight-grid article,
-.forecast {
+.forecast,
+.scorecard-panel {
   padding: 18px;
   border: 1px solid rgba(23, 66, 52, 0.14);
   background: rgba(255, 255, 255, 0.76);
@@ -174,6 +175,90 @@ select {
   margin-top: 14px;
 }
 
+.scorecard-panel {
+  margin-top: 14px;
+}
+
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.scorecard-grid.compact {
+  margin-top: 14px;
+}
+
+.scorecard-grid article,
+.ball-log {
+  padding: 14px;
+  background: rgba(233, 242, 223, 0.72);
+}
+
+.table-list {
+  display: grid;
+  gap: 8px;
+}
+
+.table-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(23, 66, 52, 0.1);
+}
+
+.table-row span {
+  display: grid;
+  gap: 3px;
+}
+
+.table-row small,
+.muted {
+  color: #60736a;
+}
+
+.ball-log {
+  margin-top: 14px;
+}
+
+.ball-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ball-strip span {
+  display: grid;
+  min-width: 52px;
+  min-height: 46px;
+  place-items: center;
+  padding: 6px;
+  background: #ffffff;
+  color: #173d30;
+  border: 1px solid rgba(23, 66, 52, 0.12);
+  font-size: 0.8rem;
+}
+
+.ball-strip b {
+  font-size: 0.68rem;
+  color: #60736a;
+}
+
+.ball-strip .boundary {
+  background: #f3c44f;
+}
+
+.ball-strip .wicket {
+  background: #853626;
+  color: #fff7ee;
+}
+
+.ball-strip .wicket b {
+  color: #ffd6c7;
+}
+
 .day-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -206,7 +291,8 @@ select {
 
   .hero-panel,
   .workspace,
-  .insight-grid {
+  .insight-grid,
+  .scorecard-grid {
     grid-template-columns: 1fr;
   }
 

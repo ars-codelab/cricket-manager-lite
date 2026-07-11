@@ -54,6 +54,20 @@ describe('simulateInnings', () => {
     expect(result.score).toBeGreaterThanOrEqual(42)
     expect(result.overs).toBe('50.0')
   })
+
+  it('keeps scorecard accounting internally consistent', () => {
+    const venue = venues.find((item) => item.id === 'lords') ?? venues[0]
+    const result = simulateInnings(venue, 'T20', 'Overcast', 'Green', tactics)
+    const batterRuns = result.scorecard.batting.reduce((total, batter) => total + batter.runs, 0)
+    const legalBalls = result.scorecard.balls.filter((ball) => ball.legal).length
+    const bowlerBalls = result.scorecard.bowling.reduce((total, bowler) => total + bowler.balls, 0)
+
+    expect(result.score).toBe(batterRuns + result.scorecard.extras.total)
+    expect(result.scorecard.balls.reduce((total, ball) => total + ball.totalRuns, 0)).toBe(result.score)
+    expect(bowlerBalls).toBe(legalBalls)
+    expect(result.overs).toBe(`${Math.floor(legalBalls / 6)}.${legalBalls % 6}`)
+    expect(result.metadata.engineVersion).toMatch(/^\d+\.\d+\.\d+$/)
+  })
 })
 
 describe('buildTestForecast', () => {

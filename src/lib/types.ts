@@ -10,6 +10,8 @@ export type RunningRisk = 'Conservative' | 'Normal' | 'Sharp'
 export type Difficulty = 'Casual' | 'Standard' | 'Expert' | 'Simulation'
 export type MatchTime = 'Day' | 'Day-Night' | 'Night'
 export type OutfieldCondition = 'Slow' | 'Normal' | 'Fast'
+export type ExtraType = 'wide' | 'no-ball' | 'bye' | 'leg-bye'
+export type WicketType = 'bowled' | 'lbw' | 'caught' | 'caught-behind' | 'stumped' | 'run-out' | 'hit-wicket'
 
 export type Venue = {
   id: string
@@ -75,6 +77,89 @@ export type MatchConditions = {
   difficulty: Difficulty
 }
 
+export type BallEvent = {
+  inningsBall: number
+  over: string
+  legal: boolean
+  strikerId: string
+  nonStrikerId: string
+  bowlerId: string
+  runsBat: number
+  runsExtras: number
+  totalRuns: number
+  extraType?: ExtraType
+  wicketType?: WicketType
+  dismissedBatterId?: string
+  commentary: string
+  tags: string[]
+}
+
+export type BatterScore = {
+  id: string
+  name: string
+  runs: number
+  balls: number
+  fours: number
+  sixes: number
+  dismissal?: string
+}
+
+export type BowlerFigures = {
+  id: string
+  name: string
+  balls: number
+  maidens: number
+  runs: number
+  wickets: number
+  wides: number
+  noBalls: number
+}
+
+export type FallOfWicket = {
+  wicket: number
+  score: number
+  over: string
+  batter: string
+}
+
+export type Partnership = {
+  wicket: number
+  runs: number
+  balls: number
+  batters: string[]
+}
+
+export type ExtrasBreakdown = {
+  wides: number
+  noBalls: number
+  byes: number
+  legByes: number
+  total: number
+}
+
+export type InningsScorecard = {
+  batting: BatterScore[]
+  bowling: BowlerFigures[]
+  extras: ExtrasBreakdown
+  fallOfWickets: FallOfWicket[]
+  partnerships: Partnership[]
+  balls: BallEvent[]
+}
+
+export type SimulationMetadata = {
+  engineVersion: string
+  rulesetVersion: string
+  dataVersion: string
+  rosterVersion: string
+  seed: string
+  format: MatchFormat
+  venueId: string
+  weatherId: WeatherType
+  pitchId: PitchType
+  tactics: BattingTactics
+  conditions: MatchConditions
+}
+
 export type TestDayCondition = {
   day: number
   label: string
@@ -92,6 +177,8 @@ export type SimulationResult = {
   overs: string
   par: number
   runRate: string
+  scorecard: InningsScorecard
+  metadata: SimulationMetadata
   conditionReadout: string[]
   tacticalReadout: string[]
   forecast: TestDayCondition[]

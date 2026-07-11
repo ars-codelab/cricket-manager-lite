@@ -41,6 +41,11 @@
   $: venue = venues.find((item) => item.id === venueId) ?? venues[0]
   $: result = simulateInnings(venue, format, weather, pitch, { aggression, shots, pacePlan, spinPlan, running }, { matchTime, outfield, difficulty })
   $: par = parForFormat(venue, format)
+  $: activeBatters = result.scorecard.batting.filter((batter) => batter.balls > 0 || batter.dismissal).slice(0, 8)
+  $: activeBowlers = result.scorecard.bowling.filter((bowler) => bowler.balls > 0)
+  $: recentBalls = result.scorecard.balls.slice(-12)
+
+  const bowlingOvers = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`
 </script>
 
 <main class="app-shell">
@@ -206,6 +211,83 @@
       {#each result.log as line}
         <p>{line}</p>
       {/each}
+    </article>
+  </section>
+
+  <section class="scorecard-panel">
+    <div class="panel-heading">
+      <span>Scorecard</span>
+      <strong>{result.score}/{result.wickets} in {result.overs}</strong>
+    </div>
+
+    <div class="scorecard-grid">
+      <article>
+        <h2>Batting</h2>
+        <div class="table-list">
+          {#each activeBatters as batter}
+            <div class="table-row">
+              <span>
+                <b>{batter.name}</b>
+                <small>{batter.dismissal ?? 'not out'}</small>
+              </span>
+              <strong>{batter.runs} ({batter.balls})</strong>
+            </div>
+          {/each}
+        </div>
+      </article>
+
+      <article>
+        <h2>Bowling</h2>
+        <div class="table-list">
+          {#each activeBowlers as bowler}
+            <div class="table-row">
+              <span>
+                <b>{bowler.name}</b>
+                <small>{bowlingOvers(bowler.balls)} ov · {bowler.wides}w {bowler.noBalls}nb</small>
+              </span>
+              <strong>{bowler.wickets}/{bowler.runs}</strong>
+            </div>
+          {/each}
+        </div>
+      </article>
+    </div>
+
+    <div class="scorecard-grid compact">
+      <article>
+        <h2>Extras</h2>
+        <p>
+          {result.scorecard.extras.total}
+          <span class="muted">
+            wides {result.scorecard.extras.wides}, no-balls {result.scorecard.extras.noBalls}, byes {result.scorecard.extras.byes}, leg-byes {result.scorecard.extras.legByes}
+          </span>
+        </p>
+      </article>
+
+      <article>
+        <h2>Fall / Partnerships</h2>
+        <p>
+          {#if result.scorecard.fallOfWickets.length}
+            {result.scorecard.fallOfWickets.map((item) => `${item.score}/${item.wicket} (${item.batter}, ${item.over})`).join(' · ')}
+          {:else}
+            No wickets lost.
+          {/if}
+        </p>
+        <p class="muted">
+          {result.scorecard.partnerships.slice(-3).map((item) => `${item.runs} off ${item.balls}`).join(' · ')}
+        </p>
+      </article>
+    </div>
+
+    <article class="ball-log">
+      <h2>Recent Ball Log</h2>
+      <div class="ball-strip">
+        {#each recentBalls as ball}
+          <span class:wicket={Boolean(ball.wicketType)} class:boundary={ball.runsBat === 4 || ball.runsBat === 6}>
+            <b>{ball.over}</b>
+            {ball.wicketType ? 'W' : ball.extraType ? ball.extraType : ball.runsBat}
+          </span>
+        {/each}
+      </div>
     </article>
   </section>
 

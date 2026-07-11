@@ -1,16 +1,28 @@
 import { formatScale, parForFormat, pitchProfiles, weatherProfiles } from './data'
 import type {
+  BallEvent,
+  BatterScore,
   BattingTactics,
+  BowlerFigures,
   ConditionModifiers,
+  FallOfWicket,
+  InningsScorecard,
   MatchConditions,
   MatchFormat,
   OutfieldCondition,
+  Partnership,
   PitchType,
+  SimulationMetadata,
   SimulationResult,
   TestDayCondition,
   Venue,
   WeatherType,
 } from './types'
+
+const ENGINE_VERSION = '0.2.0'
+const RULESET_VERSION = '0.1.0'
+const DATA_VERSION = '0.1.0'
+const ROSTER_VERSION = 'generic-0.1.0'
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
@@ -90,8 +102,91 @@ const outfieldModifiers: Record<OutfieldCondition, ConditionModifiers> = {
   Fast: { boundary: 1.12, single: 0.96, timing: 1.04 },
 }
 
+type Outcome = 'dot' | 'single' | 'two' | 'three' | 'four' | 'six' | 'wicket' | 'wide' | 'no-ball' | 'bye' | 'leg-bye'
+
+const genericBatters = Array.from({ length: 11 }, (_, index) => ({
+  id: `bat-${index + 1}`,
+  name: `Batter ${index + 1}`,
+}))
+
+const genericBowlers = Array.from({ length: 5 }, (_, index) => ({
+  id: `bowler-${index + 1}`,
+  name: `Bowler ${index + 1}`,
+}))
+
+const overString = (legalBalls: number) => `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`
+
+const maxLegalBalls = (format: MatchFormat) => {
+  if (format === 'T20') return 120
+  if (format === 'ODI') return 300
+  return 540
+}
+
+const formatBaseWeights = (format: MatchFormat) => {
+  if (format === 'T20') {
+    return { dot: 0.31, single: 0.34, two: 0.075, three: 0.01, four: 0.12, six: 0.045, wicket: 0.042, wide: 0.022, noBall: 0.004, bye: 0.006, legBye: 0.006 }
+  }
+
+  if (format === 'ODI') {
+    return { dot: 0.4, single: 0.36, two: 0.065, three: 0.008, four: 0.085, six: 0.018, wicket: 0.028, wide: 0.018, noBall: 0.003, bye: 0.006, legBye: 0.006 }
+  }
+
+  return { dot: 0.54, single: 0.29, two: 0.045, three: 0.005, four: 0.055, six: 0.008, wicket: 0.02, wide: 0.01, noBall: 0.002, bye: 0.006, legBye: 0.006 }
+}
+
+const chooseOutcome = (random: () => number, weights: Record<Outcome, number>): Outcome => {
+  const total = Object.values(weights).reduce((sum, value) => sum + value, 0)
+  let cursor = random() * total
+
+  for (const [outcome, weight] of Object.entries(weights) as [Outcome, number][]) {
+    cursor -= weight
+    if (cursor <= 0) return outcome
+  }
+
+  return 'dot'
+}
+
+const pickWicketType = (random: () => number, modifiers: ConditionModifiers): BallEvent['wicketType'] => {
+  const weights = [
+    ['bowled', 0.18 * (modifiers.lbwBowled ?? 1)],
+    ['lbw', 0.16 * (modifiers.lbwBowled ?? 1)],
+    ['caught', 0.34 * (modifiers.deepCatch ?? 1)],
+    ['caught-behind', 0.18 * (modifiers.edge ?? 1)],
+    ['stumped', 0.05 * (modifiers.spin ?? 1)],
+    ['run-out', 0.08 * (modifiers.runOut ?? 1)],
+    ['hit-wicket', 0.01],
+  ] as const
+  const total = weights.reduce((sum, [, weight]) => sum + weight, 0)
+  let cursor = random() * total
+
+  for (const [type, weight] of weights) {
+    cursor -= weight
+    if (cursor <= 0) return type
+  }
+
+  return 'caught'
+}
+
+const updatePartnerships = (
+  partnerships: Partnership[],
+  startWicket: number,
+  startScore: number,
+  startBalls: number,
+  endWicket: number,
+  endScore: number,
+  endBalls: number,
+  batters: string[],
+) => {
+  partnerships.push({
+    wicket: endWicket,
+    runs: endScore - startScore,
+    balls: endBalls - startBalls,
+    batters,
+  })
+}
+
 export const buildTestForecast = (venue: Venue, weather: WeatherType): TestDayCondition[] => {
-  const spinArc = venue.region === 'India' || venue.region === 'UAE' || venue.region === 'Bangladesh' ? 1.25 : 0.75
+  const spinArc = venue.region === 'India' || venue.region === 'UAE' || venue.region === 'Bangladesh' || venue.region === 'Sri Lanka' ? 1.25 : 0.75
   const paceArc = venue.region === 'Australia' || venue.region === 'South Africa' ? 1.05 : 0.8
   const swingArc = venue.region === 'England' || venue.region === 'New Zealand' ? 1.15 : 0.85
   const weatherSwing = weather === 'Overcast' || weather === 'Cold Morning' || weather === 'Day-Night Evening' ? 1 : 0
@@ -112,6 +207,28 @@ export const buildTestForecast = (venue: Venue, weather: WeatherType): TestDayCo
   })
 }
 
+const buildMetadata = (
+  seed: string,
+  format: MatchFormat,
+  venue: Venue,
+  weatherId: WeatherType,
+  pitchId: PitchType,
+  tactics: BattingTactics,
+  conditions: MatchConditions,
+): SimulationMetadata => ({
+  engineVersion: ENGINE_VERSION,
+  rulesetVersion: RULESET_VERSION,
+  dataVersion: DATA_VERSION,
+  rosterVersion: ROSTER_VERSION,
+  seed,
+  format,
+  venueId: venue.id,
+  weatherId,
+  pitchId,
+  tactics,
+  conditions,
+})
+
 export const simulateInnings = (
   venue: Venue,
   format: MatchFormat,
@@ -124,7 +241,8 @@ export const simulateInnings = (
   const weather = weatherProfiles.find((item) => item.id === weatherId) ?? weatherProfiles[0]
   const pitch = pitchProfiles.find((item) => item.id === pitchId) ?? pitchProfiles[0]
   const scale = formatScale[format]
-  const random = createSeededRandom(`${venue.id}-${format}-${weatherId}-${pitchId}-${JSON.stringify(tactics)}-${JSON.stringify(matchConditions)}`)
+  const seed = `${venue.id}-${format}-${weatherId}-${pitchId}-${JSON.stringify(tactics)}-${JSON.stringify(matchConditions)}`
+  const random = createSeededRandom(seed)
   const par = parForFormat(venue, format)
   const forecast = buildTestForecast(venue, weatherId)
   const activeDay = format === 'Test' ? forecast[0] : null
@@ -140,45 +258,183 @@ export const simulateInnings = (
   const venueBowlingThreat = Math.max(venue.paceCarry, venue.seam, venue.swing, venue.spin) / 7
   const testDayBatting = activeDay ? activeDay.battingEase / venue.battingEase : 1
   const testDayThreat = activeDay ? Math.max(activeDay.seam, activeDay.swing, activeDay.spin, activeDay.unevenBounce) / Math.max(venue.seam, venue.swing, venue.spin, 1) : 1
-
-  const baseBalls = format === 'T20' ? 120 : format === 'ODI' ? 300 : 540
-  const baseRunRate = format === 'T20' ? par / 20 : format === 'ODI' ? par / 50 : par / 90
-  const runRate = clamp(
-    baseRunRate *
-      venueBatting *
-      testDayBatting *
-      (modifiers.timing ?? 1) *
-      (((modifiers.boundary ?? 1) + (modifiers.single ?? 1)) / 2) *
-      (0.92 + random() * 0.18),
-    format === 'T20' ? 4.5 : 1.8,
-    format === 'T20' ? 13.5 : format === 'ODI' ? 8.5 : 5.8,
-  )
-
+  const battingFactor = clamp(venueBatting * testDayBatting * (modifiers.timing ?? 1), 0.45, 1.8)
   const wicketPressure = clamp(
     venueBowlingThreat *
       testDayThreat *
       (modifiers.wicket ?? 1) *
-      (((modifiers.edge ?? 1) + (modifiers.lbwBowled ?? 1) + (modifiers.deepCatch ?? 1)) / 3) *
-      (0.82 + random() * 0.36),
-    0.45,
-    2.2,
+      (((modifiers.edge ?? 1) + (modifiers.lbwBowled ?? 1) + (modifiers.deepCatch ?? 1)) / 3),
+    0.35,
+    2.5,
   )
 
-  const oversUsed = format === 'Test' ? clamp(58 + random() * 32, 35, 90) : baseBalls / 6
-  const rawScore = runRate * oversUsed
-  const wickets = Math.min(10, Math.max(1, Math.round((format === 'Test' ? 4.2 : format === 'ODI' ? 5.6 : 6.1) * wicketPressure + random() * 2 - 1)))
-  const allOutPenalty = wickets >= 10 ? 0.82 + random() * 0.1 : 1
-  const score = Math.max(42, Math.round(rawScore * allOutPenalty))
-  const fullOvers = Math.floor(oversUsed)
-  const balls = Math.floor((oversUsed - fullOvers) * 6)
+  const batting: BatterScore[] = genericBatters.map((batter) => ({ ...batter, runs: 0, balls: 0, fours: 0, sixes: 0 }))
+  const bowling: BowlerFigures[] = genericBowlers.map((bowler) => ({ ...bowler, balls: 0, maidens: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }))
+  const events: BallEvent[] = []
+  const fallOfWickets: FallOfWicket[] = []
+  const partnerships: Partnership[] = []
+  const extras = { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 }
+  const overRuns = new Map<string, number>()
+  const overLegalBalls = new Map<string, number>()
+
+  let score = 0
+  let wickets = 0
+  let legalBalls = 0
+  let strikerIndex = 0
+  let nonStrikerIndex = 1
+  let nextBatterIndex = 2
+  let partnershipStartScore = 0
+  let partnershipStartBalls = 0
+  let partnershipBatters = [batting[strikerIndex].name, batting[nonStrikerIndex].name]
+
+  const maxBalls = maxLegalBalls(format)
+
+  while (legalBalls < maxBalls && wickets < 10) {
+    const phase = legalBalls / maxBalls
+    const overNumber = Math.floor(legalBalls / 6)
+    const bowlerIndex = overNumber % bowling.length
+    const bowler = bowling[bowlerIndex]
+    const base = formatBaseWeights(format)
+    const deathOvers = format !== 'Test' && phase > 0.8
+    const newBall = phase < 0.12
+    const weights: Record<Outcome, number> = {
+      dot: base.dot * (modifiers.dot ?? 1) * clamp(wicketPressure / battingFactor, 0.65, 1.45),
+      single: base.single * (modifiers.single ?? 1) * clamp(battingFactor, 0.75, 1.25),
+      two: base.two * (venue.outfield <= 7 ? 1.08 : 0.95) * (modifiers.single ?? 1),
+      three: base.three * (venue.outfield >= 8 ? 1.1 : 0.85),
+      four: base.four * (modifiers.boundary ?? 1) * battingFactor * (deathOvers ? 1.12 : 1),
+      six: base.six * (modifiers.six ?? 1) * battingFactor * (deathOvers ? 1.18 : 1),
+      wicket: base.wicket * wicketPressure * (newBall ? clamp((venue.seam + venue.swing) / 12, 0.9, 1.25) : 1),
+      wide: base.wide * (matchConditions.difficulty === 'Casual' ? 0.9 : 1),
+      'no-ball': base.noBall,
+      bye: base.bye * (modifiers.fieldingDifficulty ?? 1),
+      'leg-bye': base.legBye,
+    }
+    const outcome = chooseOutcome(random, weights)
+    const legal = outcome !== 'wide' && outcome !== 'no-ball'
+    const overAfterBall = legal ? legalBalls + 1 : legalBalls
+    const event: BallEvent = {
+      inningsBall: events.length + 1,
+      over: overString(legal ? overAfterBall : legalBalls),
+      legal,
+      strikerId: batting[strikerIndex].id,
+      nonStrikerId: batting[nonStrikerIndex].id,
+      bowlerId: bowler.id,
+      runsBat: 0,
+      runsExtras: 0,
+      totalRuns: 0,
+      tags: [],
+      commentary: '',
+    }
+
+    if (outcome === 'wide') {
+      event.runsExtras = 1
+      event.extraType = 'wide'
+      event.tags.push('line-error')
+      extras.wides += 1
+      bowler.wides += 1
+      bowler.runs += 1
+    } else if (outcome === 'no-ball') {
+      event.runsExtras = 1
+      event.extraType = 'no-ball'
+      event.tags.push('overstep')
+      extras.noBalls += 1
+      bowler.noBalls += 1
+      bowler.runs += 1
+    } else if (outcome === 'bye' || outcome === 'leg-bye') {
+      event.runsExtras = outcome === 'bye' ? 1 : 1
+      event.extraType = outcome
+      event.tags.push(outcome === 'bye' ? 'keeper-miss' : 'body-line')
+      extras[outcome === 'bye' ? 'byes' : 'legByes'] += event.runsExtras
+    } else if (outcome === 'wicket') {
+      const dismissal = pickWicketType(random, modifiers)
+      const dismissed = batting[strikerIndex]
+      event.wicketType = dismissal
+      event.dismissedBatterId = dismissed.id
+      event.tags.push(dismissal === 'caught-behind' ? 'edge' : dismissal === 'lbw' || dismissal === 'bowled' ? 'stumps' : 'wicket')
+      dismissed.balls += 1
+      dismissed.dismissal = `${dismissal} b ${bowler.name}`
+      if (dismissal !== 'run-out') {
+        bowler.wickets += 1
+      }
+      wickets += 1
+      fallOfWickets.push({ wicket: wickets, score, over: event.over, batter: dismissed.name })
+      updatePartnerships(partnerships, wickets - 1, partnershipStartScore, partnershipStartBalls, wickets, score, legalBalls + 1, partnershipBatters)
+      partnershipStartScore = score
+      partnershipStartBalls = legalBalls + 1
+      strikerIndex = nextBatterIndex
+      nextBatterIndex += 1
+      partnershipBatters = wickets < 10 ? [batting[strikerIndex].name, batting[nonStrikerIndex].name] : partnershipBatters
+    } else {
+      const runs = outcome === 'single' ? 1 : outcome === 'two' ? 2 : outcome === 'three' ? 3 : outcome === 'four' ? 4 : outcome === 'six' ? 6 : 0
+      const striker = batting[strikerIndex]
+      event.runsBat = runs
+      striker.runs += runs
+      striker.balls += 1
+      if (runs === 4) striker.fours += 1
+      if (runs === 6) striker.sixes += 1
+      bowler.runs += runs
+      if (runs === 4 || runs === 6) event.tags.push('boundary')
+      if (runs % 2 === 1) {
+        ;[strikerIndex, nonStrikerIndex] = [nonStrikerIndex, strikerIndex]
+      }
+    }
+
+    event.totalRuns = event.runsBat + event.runsExtras
+    score += event.totalRuns
+    extras.total += event.runsExtras
+    const overKey = `${bowler.id}-${overNumber}`
+    const bowlerConceded = event.runsBat + (event.extraType === 'wide' || event.extraType === 'no-ball' ? event.runsExtras : 0)
+    overRuns.set(overKey, (overRuns.get(overKey) ?? 0) + bowlerConceded)
+
+    if (legal) {
+      legalBalls += 1
+      bowler.balls += 1
+      overLegalBalls.set(overKey, (overLegalBalls.get(overKey) ?? 0) + 1)
+      if (legalBalls % 6 === 0) {
+        ;[strikerIndex, nonStrikerIndex] = [nonStrikerIndex, strikerIndex]
+      }
+    }
+
+    event.commentary =
+      outcome === 'wicket'
+        ? `${event.over}: wicket, ${event.wicketType} under ${pitch.id.toLowerCase()} ${weather.id.toLowerCase()} pressure.`
+        : event.totalRuns === 0
+          ? `${event.over}: dot ball, ${venue.name} conditions keep the batter honest.`
+          : `${event.over}: ${event.totalRuns} run${event.totalRuns === 1 ? '' : 's'}${event.extraType ? ` (${event.extraType})` : ''}.`
+    events.push(event)
+  }
+
+  if (wickets < 10) {
+    updatePartnerships(partnerships, wickets, partnershipStartScore, partnershipStartBalls, wickets + 1, score, legalBalls, partnershipBatters)
+  }
+
+  for (const bowler of bowling) {
+    bowler.maidens = Array.from(overRuns.entries()).filter(
+      ([key, runs]) => key.startsWith(`${bowler.id}-`) && runs === 0 && overLegalBalls.get(key) === 6,
+    ).length
+  }
+
+  const scorecard: InningsScorecard = {
+    batting,
+    bowling,
+    extras,
+    fallOfWickets,
+    partnerships,
+    balls: events,
+  }
+  const oversUsed = legalBalls / 6
+  const metadata = buildMetadata(seed, format, venue, weatherId, pitchId, tactics, matchConditions)
 
   return {
     score,
     wickets,
-    overs: `${fullOvers}.${balls}`,
+    overs: overString(legalBalls),
     par,
-    runRate: (score / oversUsed).toFixed(2),
+    runRate: oversUsed > 0 ? (score / oversUsed).toFixed(2) : '0.00',
     forecast,
+    scorecard,
+    metadata,
     conditionReadout: [
       `${venue.name}: pace ${venue.paceCarry}/10, swing ${venue.swing}/10, spin ${venue.spin}/10, batting ${venue.battingEase}/10.`,
       `${weather.id}: ${weather.summary}`,
@@ -196,6 +452,7 @@ export const simulateInnings = (
       `Powerplay read: ${venue.swing + venue.seam >= 14 || weatherId === 'Overcast' ? 'new ball threat is high' : 'batters can settle normally'}.`,
       `Middle phase: ${venue.spin >= 7 || pitchId === 'Dusty' ? 'spin matchups matter' : 'pace changes and field settings carry more value'}.`,
       `Toss lean: ${venue.toss}${weatherId === 'Dew' ? ' with extra chase value under dew' : ''}.`,
+      ...events.slice(-8).map((event) => event.commentary),
     ],
   }
 }
