@@ -5,6 +5,8 @@
   import type {
     Aggression,
     BattingTactics,
+    BowlerFigures,
+    BatterScore,
     BowlingLength,
     BowlingLine,
     BowlingTactics,
@@ -19,6 +21,7 @@
     PitchType,
     RunningRisk,
     ShotSelection,
+    SimulationResult,
     SpinPlan,
     SpinBowlingPlan,
     VariationUse,
@@ -26,6 +29,12 @@
   } from './lib/types'
 
   type View = 'home' | 'setup' | 'match' | 'insights'
+  type MatchResultSummary = {
+    winner: string
+    margin: string
+    playerOfTheMatch: string
+    playerReason: string
+  }
   type SavedSetup = {
     format: MatchFormat
     venueId: string
@@ -91,6 +100,7 @@
   let livePaceBowlingPlan: PaceBowlingPlan = defaultBowlingTactics.pacePlan
   let liveSpinBowlingPlan: SpinBowlingPlan = defaultBowlingTactics.spinPlan
   let batterPlans: Record<string, BattingTactics> = {}
+  let firstInningsResult: SimulationResult | null = null
   let inningsState: InningsState = createInningsState(
     venues.find((item) => item.id === 'wankhede') ?? venues[0],
     'T20',
@@ -105,6 +115,7 @@
   $: if (setupKey !== lastSimulationKey) {
     lastSimulationKey = setupKey
     inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty })
+    firstInningsResult = null
     batterPlans = {}
     lastNextBallKey = ''
     nextBowlerId = defaultBowlerForOver(inningsState)
@@ -132,6 +143,7 @@
   $: currentOverNumber = Math.floor(inningsState.legalBalls / 6)
   $: inningsLabel = `${ordinal(inningsState.inningsNumber)} innings`
   $: chaseLabel = typeof inningsState.targetScore === 'number' ? `Target ${inningsState.targetScore}` : 'No target'
+  $: matchResult = firstInningsResult && isComplete && inningsState.inningsNumber === 2 ? buildMatchResult(firstInningsResult, result) : null
   $: nextBallKey = `${lastSimulationKey}-${progress.legalBalls}-${progress.wickets}-${currentStriker?.id ?? 'complete'}`
   $: if (nextBallKey !== lastNextBallKey) {
     const storedPlan = currentStriker?.id ? batterPlans[currentStriker.id] : null
@@ -155,6 +167,50 @@
   }
 
   const currentBattingTactics = (): BattingTactics => ({ aggression, shots, pacePlan, spinPlan, running })
+
+  const batterPoints = (batter: BatterScore) =>
+    batter.runs + batter.fours * 1.5 + batter.sixes * 3 + (batter.runs >= 50 ? 8 : 0) + (batter.runs >= 100 ? 12 : 0)
+
+  const bowlerPoints = (bowler: BowlerFigures) =>
+    bowler.wickets * 24 + bowler.maidens * 8 - bowler.runs * 0.08 + bowler.balls / 6
+
+  const buildMatchResult = (first: SimulationResult, second: SimulationResult): MatchResultSummary => {
+    const target = first.score + 1
+    const chasingSideWon = second.score >= target
+    const remainingWickets = Math.max(0, 10 - second.wickets)
+    const winner = chasingSideWon ? 'Chasing side won' : 'Defending side won'
+    const margin = chasingSideWon ? `by ${remainingWickets} wickets` : `by ${target - second.score - 1} runs`
+    const candidates = [
+      ...first.scorecard.batting.map((batter) => ({
+        name: `Defending batter ${batter.name}`,
+        reason: `${batter.runs} runs off ${batter.balls} balls`,
+        points: batterPoints(batter),
+      })),
+      ...first.scorecard.bowling.map((bowler) => ({
+        name: `Defending bowler ${bowler.name}`,
+        reason: `${bowler.wickets}/${bowler.runs} in ${bowlingOvers(bowler.balls)} overs`,
+        points: bowlerPoints(bowler),
+      })),
+      ...second.scorecard.batting.map((batter) => ({
+        name: `Chasing batter ${batter.name}`,
+        reason: `${batter.runs} runs off ${batter.balls} balls`,
+        points: batterPoints(batter),
+      })),
+      ...second.scorecard.bowling.map((bowler) => ({
+        name: `Chasing bowler ${bowler.name}`,
+        reason: `${bowler.wickets}/${bowler.runs} in ${bowlingOvers(bowler.balls)} overs`,
+        points: bowlerPoints(bowler),
+      })),
+    ]
+    const bestPlayer = candidates.reduce((best, current) => (current.points > best.points ? current : best), candidates[0])
+
+    return {
+      winner,
+      margin,
+      playerOfTheMatch: bestPlayer.name,
+      playerReason: bestPlayer.reason,
+    }
+  }
 
   const currentLiveBattingTactics = (): BattingTactics => ({
     aggression: liveAggression,
@@ -200,6 +256,7 @@
   const startNextInnings = () => {
     if (!inningsState.completed || inningsState.inningsNumber >= 2) return
 
+    firstInningsResult = result
     const targetScore = progress.score + 1
     inningsState = createInningsState(
       venue,
@@ -225,6 +282,7 @@
 
   const resetInnings = () => {
     inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty })
+    firstInningsResult = null
     batterPlans = {}
     lastNextBallKey = ''
     nextBowlerId = defaultBowlerForOver(inningsState)
@@ -595,9 +653,14 @@
         </div>
       {/if}
 
-      {#if isComplete && inningsState.inningsNumber === 2}
+      {#if isComplete && inningsState.inningsNumber === 2 && matchResult}
         <div class="custom-sim">
-          <span>Chase complete. Final innings finished at {progress.score}/{progress.wickets}.</span>
+          <span>
+            {matchResult.winner} {matchResult.margin}. 1st innings {firstInningsResult?.score}/{firstInningsResult?.wickets}, 2nd innings {progress.score}/{progress.wickets}.
+          </span>
+        </div>
+        <div class="custom-sim">
+          <span>Player of the match: {matchResult.playerOfTheMatch} for {matchResult.playerReason}.</span>
           <button type="button" on:click={resetInnings}>New match</button>
         </div>
       {/if}
