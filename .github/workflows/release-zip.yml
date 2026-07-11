@@ -1,0 +1,29 @@
+name: Build Release ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: zip -r cricket-manager-lite.zip dist README.md LICENSE docs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cricket-manager-lite
+          path: cricket-manager-lite.zip

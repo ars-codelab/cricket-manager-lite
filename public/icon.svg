@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Cricket Manager Lite</title>
+  <rect width="512" height="512" rx="96" fill="#12372d"/>
+  <path d="M96 344c74-12 137-49 190-111 42-49 83-73 130-73" fill="none" stroke="#f3c44f" stroke-width="34" stroke-linecap="round"/>
+  <circle cx="169" cy="176" r="54" fill="#f8fff8"/>
+  <path d="M143 157c18 24 43 39 76 45" fill="none" stroke="#d84f32" stroke-width="14" stroke-linecap="round"/>
+  <path d="M112 398h288" stroke="#f8fff8" stroke-width="24" stroke-linecap="round"/>
+</svg>
