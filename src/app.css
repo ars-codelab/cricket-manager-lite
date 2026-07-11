@@ -21,7 +21,8 @@ body {
 }
 
 button,
-select {
+select,
+input {
   font: inherit;
 }
 
@@ -223,6 +224,16 @@ select {
   color: #12201b;
 }
 
+input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid rgba(22, 79, 60, 0.22);
+  border-radius: 6px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #12201b;
+}
+
 .venue-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -287,6 +298,60 @@ select {
 
 .scorecard-panel {
   margin-top: 14px;
+}
+
+.sim-controls {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sim-controls button,
+.custom-sim button {
+  min-height: 42px;
+  border-radius: 999px;
+  background: #173d30;
+  color: #f8fff8;
+  font-weight: 800;
+}
+
+.sim-controls button:disabled,
+.custom-sim button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.custom-sim {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) auto 1fr;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 14px;
+  padding: 12px;
+  background: rgba(233, 242, 223, 0.72);
+}
+
+.custom-sim label {
+  margin-bottom: 0;
+}
+
+.custom-sim span {
+  align-self: center;
+  color: #60736a;
+  font-size: 0.86rem;
+}
+
+.live-plan {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.live-plan article {
+  padding: 14px;
+  background: rgba(233, 242, 223, 0.72);
 }
 
 .scorecard-grid {
@@ -402,7 +467,10 @@ select {
   .hero-panel,
   .workspace,
   .insight-grid,
-  .scorecard-grid {
+  .scorecard-grid,
+  .sim-controls,
+  .custom-sim,
+  .live-plan {
     grid-template-columns: 1fr;
   }
 

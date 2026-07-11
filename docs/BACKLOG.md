@@ -2,7 +2,7 @@
 
 ## Milestone 1: First Playable Custom Match
 
-Status: playable for a single generic innings. Remaining work is polish, stronger plausibility tuning, real teams/players, and richer match flow.
+Status: playable for a single generic innings with progressive over/wicket/custom simulation controls. Remaining work is stronger plausibility tuning, real teams/players, second innings/chases, and deeper live captaincy impact.
 
 ### Story: Configure A Match
 

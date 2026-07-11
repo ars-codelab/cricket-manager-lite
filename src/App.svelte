@@ -4,10 +4,16 @@
   import { simulateInnings } from './lib/simulation'
   import type {
     Aggression,
+    BallEvent,
+    BatterScore,
+    BattingTactics,
+    BowlerFigures,
     Difficulty,
+    FallOfWicket,
     MatchFormat,
     MatchTime,
     OutfieldCondition,
+    Partnership,
     PacePlan,
     PitchType,
     RunningRisk,
@@ -17,6 +23,7 @@
   } from './lib/types'
 
   type View = 'home' | 'setup' | 'match' | 'insights'
+  type BowlerOverrides = Record<number, string>
   type SavedSetup = {
     format: MatchFormat
     venueId: string
@@ -60,16 +67,237 @@
   let running: RunningRisk = 'Normal'
   let saveMessage = 'No saved setup loaded.'
   let importInput: HTMLInputElement | null = null
+  let visibleEventCount = 0
+  let customOvers = 2
+  let lastSimulationKey = ''
+  let lastNextBallKey = ''
+  let nextBowlerId = ''
+  let liveAggression: Aggression = 'Positive'
+  let liveShots: ShotSelection = 'Mixed'
+  let livePacePlan: PacePlan = 'Play late'
+  let liveSpinPlan: SpinPlan = 'Rotate strike'
+  let liveRunning: RunningRisk = 'Normal'
+  let batterPlans: Record<string, BattingTactics> = {}
+  let bowlerOverrides: BowlerOverrides = {}
 
   $: venue = venues.find((item) => item.id === venueId) ?? venues[0]
   $: result = simulateInnings(venue, format, weather, pitch, { aggression, shots, pacePlan, spinPlan, running }, { matchTime, outfield, difficulty })
+  $: if (result.metadata.seed !== lastSimulationKey) {
+    lastSimulationKey = result.metadata.seed
+    visibleEventCount = 0
+    batterPlans = {}
+    bowlerOverrides = {}
+    lastNextBallKey = ''
+  }
   $: par = parForFormat(venue, format)
-  $: activeBatters = result.scorecard.batting.filter((batter) => batter.balls > 0 || batter.dismissal).slice(0, 8)
-  $: activeBowlers = result.scorecard.bowling.filter((bowler) => bowler.balls > 0)
-  $: recentBalls = result.scorecard.balls.slice(-18)
+  $: rawVisibleBalls = result.scorecard.balls.slice(0, visibleEventCount)
+  $: visibleBalls = applyBowlerOverrides(rawVisibleBalls)
+  $: progress = buildProgress(visibleBalls)
+  $: activeBatters = progress.batting.filter((batter) => batter.balls > 0 || batter.dismissal).slice(0, 8)
+  $: activeBowlers = progress.bowling.filter((bowler) => bowler.balls > 0 || bowler.wides > 0 || bowler.noBalls > 0)
+  $: recentBalls = visibleBalls.slice(-18)
+  $: isComplete = visibleEventCount >= result.scorecard.balls.length
+  $: nextBall = result.scorecard.balls[visibleEventCount]
+  $: currentStriker = result.scorecard.batting.find((batter) => batter.id === nextBall?.strikerId)
+  $: currentPartner = result.scorecard.batting.find((batter) => batter.id === nextBall?.nonStrikerId)
+  $: currentOverNumber = Math.floor(legalBallCount(rawVisibleBalls) / 6)
+  $: nextBallKey = `${lastSimulationKey}-${visibleEventCount}-${nextBall?.strikerId ?? 'complete'}-${nextBall?.bowlerId ?? 'complete'}`
+  $: if (nextBallKey !== lastNextBallKey) {
+    const storedPlan = nextBall?.strikerId ? batterPlans[nextBall.strikerId] : null
+    lastNextBallKey = nextBallKey
+    nextBowlerId = bowlerOverrides[currentOverNumber] ?? nextBall?.bowlerId ?? result.scorecard.bowling[0]?.id ?? ''
+    liveAggression = storedPlan?.aggression ?? aggression
+    liveShots = storedPlan?.shots ?? shots
+    livePacePlan = storedPlan?.pacePlan ?? pacePlan
+    liveSpinPlan = storedPlan?.spinPlan ?? spinPlan
+    liveRunning = storedPlan?.running ?? running
+  }
   $: venueSummary = `${venue.city}, ${venue.country} · ${weather} · ${pitch} pitch`
 
   const bowlingOvers = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`
+
+  const legalBallCount = (balls: BallEvent[]) => balls.filter((ball) => ball.legal).length
+
+  const applyBowlerOverrides = (balls: BallEvent[]) => {
+    let legalBalls = 0
+
+    return balls.map((ball) => {
+      const overNumber = Math.floor(legalBalls / 6)
+      const bowlerId = bowlerOverrides[overNumber] ?? ball.bowlerId
+      if (ball.legal) legalBalls += 1
+      return bowlerId === ball.bowlerId ? ball : { ...ball, bowlerId }
+    })
+  }
+
+  const buildProgress = (balls: BallEvent[]) => {
+    const batting: BatterScore[] = result.scorecard.batting.map((batter) => ({
+      id: batter.id,
+      name: batter.name,
+      runs: 0,
+      balls: 0,
+      fours: 0,
+      sixes: 0,
+    }))
+    const bowling: BowlerFigures[] = result.scorecard.bowling.map((bowler) => ({
+      id: bowler.id,
+      name: bowler.name,
+      balls: 0,
+      maidens: 0,
+      runs: 0,
+      wickets: 0,
+      wides: 0,
+      noBalls: 0,
+    }))
+    const fallOfWickets: FallOfWicket[] = []
+    const partnerships: Partnership[] = []
+    const extras = { wides: 0, noBalls: 0, byes: 0, legByes: 0, total: 0 }
+    const overRuns = new Map<string, number>()
+    const overLegalBalls = new Map<string, number>()
+    let score = 0
+    let wickets = 0
+    let legalBalls = 0
+    let partnershipStartScore = 0
+    let partnershipStartBalls = 0
+    let currentPair = ['Batter 1', 'Batter 2']
+
+    for (const ball of balls) {
+      const batter = batting.find((item) => item.id === ball.strikerId)
+      const bowler = bowling.find((item) => item.id === ball.bowlerId)
+      const overNumber = Math.floor(legalBalls / 6)
+      const overKey = `${ball.bowlerId}-${overNumber}`
+
+      if (ball.legal) {
+        legalBalls += 1
+        if (batter) batter.balls += 1
+        if (bowler) bowler.balls += 1
+        overLegalBalls.set(overKey, (overLegalBalls.get(overKey) ?? 0) + 1)
+      }
+
+      if (batter) {
+        batter.runs += ball.runsBat
+        if (ball.runsBat === 4) batter.fours += 1
+        if (ball.runsBat === 6) batter.sixes += 1
+      }
+
+      if (ball.extraType === 'wide') extras.wides += ball.runsExtras
+      if (ball.extraType === 'no-ball') extras.noBalls += ball.runsExtras
+      if (ball.extraType === 'bye') extras.byes += ball.runsExtras
+      if (ball.extraType === 'leg-bye') extras.legByes += ball.runsExtras
+      extras.total += ball.runsExtras
+
+      if (bowler) {
+        const bowlerConceded = ball.runsBat + (ball.extraType === 'wide' || ball.extraType === 'no-ball' ? ball.runsExtras : 0)
+        bowler.runs += bowlerConceded
+        if (ball.extraType === 'wide') bowler.wides += ball.runsExtras
+        if (ball.extraType === 'no-ball') bowler.noBalls += ball.runsExtras
+        overRuns.set(overKey, (overRuns.get(overKey) ?? 0) + bowlerConceded)
+      }
+
+      score += ball.totalRuns
+
+      if (ball.wicketType && ball.dismissedBatterId) {
+        wickets += 1
+        const dismissed = batting.find((item) => item.id === ball.dismissedBatterId)
+        if (dismissed) {
+          dismissed.dismissal = `${ball.wicketType} b ${bowler?.name ?? 'Bowler'}`
+          fallOfWickets.push({ wicket: wickets, score, over: ball.over, batter: dismissed.name })
+        }
+        if (bowler && ball.wicketType !== 'run-out') bowler.wickets += 1
+        partnerships.push({
+          wicket: wickets,
+          runs: score - partnershipStartScore,
+          balls: legalBalls - partnershipStartBalls,
+          batters: currentPair,
+        })
+        partnershipStartScore = score
+        partnershipStartBalls = legalBalls
+        currentPair = [batting.find((item) => item.id === ball.strikerId)?.name ?? 'Batter', batting.find((item) => item.id === ball.nonStrikerId)?.name ?? 'Batter']
+      }
+    }
+
+    if (balls.length && wickets < 10) {
+      partnerships.push({
+        wicket: wickets + 1,
+        runs: score - partnershipStartScore,
+        balls: legalBalls - partnershipStartBalls,
+        batters: currentPair,
+      })
+    }
+
+    for (const bowler of bowling) {
+      bowler.maidens = Array.from(overRuns.entries()).filter(
+        ([key, runs]) => key.startsWith(`${bowler.id}-`) && runs === 0 && overLegalBalls.get(key) === 6,
+      ).length
+    }
+
+    return {
+      score,
+      wickets,
+      legalBalls,
+      overs: bowlingOvers(legalBalls),
+      runRate: legalBalls > 0 ? (score / (legalBalls / 6)).toFixed(2) : '0.00',
+      batting,
+      bowling,
+      extras,
+      fallOfWickets,
+      partnerships,
+    }
+  }
+
+  const revealToLegalBalls = (targetLegalBalls: number) => {
+    let legalBalls = 0
+    const target = Math.max(0, targetLegalBalls)
+
+    for (const [index, ball] of result.scorecard.balls.entries()) {
+      if (ball.legal) legalBalls += 1
+      if (legalBalls >= target) {
+        visibleEventCount = index + 1
+        return
+      }
+    }
+
+    visibleEventCount = result.scorecard.balls.length
+  }
+
+  const commitLivePlan = () => {
+    if (nextBall?.strikerId) {
+      batterPlans = {
+        ...batterPlans,
+        [nextBall.strikerId]: {
+          aggression: liveAggression,
+          shots: liveShots,
+          pacePlan: livePacePlan,
+          spinPlan: liveSpinPlan,
+          running: liveRunning,
+        },
+      }
+    }
+
+    if (nextBowlerId) {
+      bowlerOverrides = {
+        ...bowlerOverrides,
+        [currentOverNumber]: nextBowlerId,
+      }
+    }
+  }
+
+  const revealOvers = (overs: number) => {
+    commitLivePlan()
+    revealToLegalBalls(legalBallCount(visibleBalls) + overs * 6)
+  }
+
+  const revealNextWicket = () => {
+    commitLivePlan()
+    const index = result.scorecard.balls.findIndex((ball, ballIndex) => ballIndex >= visibleEventCount && Boolean(ball.wicketType))
+    visibleEventCount = index >= 0 ? index + 1 : result.scorecard.balls.length
+  }
+
+  const resetInnings = () => {
+    visibleEventCount = 0
+    batterPlans = {}
+    bowlerOverrides = {}
+    lastNextBallKey = ''
+  }
 
   const currentSetup = (): SavedSetup => ({
     format,
@@ -213,9 +441,9 @@
       <p class="hero-copy">{venueSummary}</p>
     </div>
     <div class="score-tile">
-      <span>Simulated innings</span>
-      <strong>{result.score}/{result.wickets}</strong>
-      <small>{result.overs} overs · RR {result.runRate} · par {par}</small>
+      <span>{visibleEventCount === 0 ? 'Ready innings' : 'Current innings'}</span>
+      <strong>{progress.score}/{progress.wickets}</strong>
+      <small>{progress.overs} overs · RR {progress.runRate} · par {par}</small>
     </div>
   </section>
 
@@ -390,7 +618,7 @@
           </select>
         </label>
 
-        <button class="wide-action" type="button" on:click={() => (view = 'match')}>Simulate innings</button>
+        <button class="wide-action" type="button" on:click={() => { resetInnings(); view = 'match' }}>Start match</button>
         <div class="save-actions">
           <button type="button" on:click={saveSetup}>Save</button>
           <button type="button" on:click={loadSetup}>Load</button>
@@ -407,8 +635,102 @@
     <section class="scorecard-panel">
       <div class="panel-heading">
         <span>Match Centre</span>
-        <strong>{result.score}/{result.wickets} in {result.overs}</strong>
+        <strong>{progress.score}/{progress.wickets} in {progress.overs}</strong>
       </div>
+
+      <div class="sim-controls">
+        <button type="button" on:click={() => revealOvers(1)} disabled={isComplete}>+1 over</button>
+        <button type="button" on:click={() => revealOvers(5)} disabled={isComplete}>+5 overs</button>
+        <button type="button" on:click={() => revealOvers(10)} disabled={isComplete}>+10 overs</button>
+        <button type="button" on:click={revealNextWicket} disabled={isComplete}>To wicket</button>
+        <button type="button" on:click={() => (visibleEventCount = result.scorecard.balls.length)} disabled={isComplete}>Innings</button>
+        <button type="button" on:click={resetInnings} disabled={visibleEventCount === 0}>Reset</button>
+      </div>
+
+      <div class="custom-sim">
+        <label>
+          Custom overs
+          <input bind:value={customOvers} min="1" max="30" type="number" />
+        </label>
+        <button type="button" on:click={() => revealOvers(Number(customOvers) || 1)} disabled={isComplete}>Sim custom</button>
+        <span>{visibleEventCount === 0 ? 'Ready to start.' : isComplete ? 'Innings complete.' : `${result.scorecard.balls.length - visibleEventCount} events remaining.`}</span>
+      </div>
+
+      {#if !isComplete}
+        <div class="live-plan">
+          <article>
+            <div class="panel-heading">
+              <span>Current Batters</span>
+              <strong>{currentStriker?.name ?? 'Innings complete'}</strong>
+            </div>
+            <p class="muted">Partner: {currentPartner?.name ?? 'none'} · plans are saved per striker before each advance.</p>
+
+            <label>
+              Batter intent
+              <select bind:value={liveAggression}>
+                {#each aggressions as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label>
+              Shot selection
+              <select bind:value={liveShots}>
+                {#each shotSelections as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label>
+              Pace plan
+              <select bind:value={livePacePlan}>
+                {#each pacePlans as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label>
+              Spin plan
+              <select bind:value={liveSpinPlan}>
+                {#each spinPlans as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+
+            <label>
+              Running
+              <select bind:value={liveRunning}>
+                {#each runningRisks as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+          </article>
+
+          <article>
+            <div class="panel-heading">
+              <span>Next Over</span>
+              <strong>Over {currentOverNumber + 1}</strong>
+            </div>
+            <p class="muted">Choose the bowler before continuing. This applies to the next over in the visible scorecard.</p>
+
+            <label>
+              Bowler
+              <select bind:value={nextBowlerId}>
+                {#each result.scorecard.bowling as bowler}
+                  <option value={bowler.id}>{bowler.name}</option>
+                {/each}
+              </select>
+            </label>
+
+            <button class="wide-action" type="button" on:click={commitLivePlan}>Apply live plan</button>
+          </article>
+        </div>
+      {/if}
 
       <div class="scorecard-grid">
         <article>
@@ -446,9 +768,9 @@
         <article>
           <h2>Extras</h2>
           <p>
-            {result.scorecard.extras.total}
+            {progress.extras.total}
             <span class="muted">
-              wides {result.scorecard.extras.wides}, no-balls {result.scorecard.extras.noBalls}, byes {result.scorecard.extras.byes}, leg-byes {result.scorecard.extras.legByes}
+              wides {progress.extras.wides}, no-balls {progress.extras.noBalls}, byes {progress.extras.byes}, leg-byes {progress.extras.legByes}
             </span>
           </p>
         </article>
@@ -456,14 +778,14 @@
         <article>
           <h2>Fall / Partnerships</h2>
           <p>
-            {#if result.scorecard.fallOfWickets.length}
-              {result.scorecard.fallOfWickets.map((item) => `${item.score}/${item.wicket} (${item.batter}, ${item.over})`).join(' · ')}
+            {#if progress.fallOfWickets.length}
+              {progress.fallOfWickets.map((item) => `${item.score}/${item.wicket} (${item.batter}, ${item.over})`).join(' · ')}
             {:else}
               No wickets lost.
             {/if}
           </p>
           <p class="muted">
-            {result.scorecard.partnerships.slice(-3).map((item) => `${item.runs} off ${item.balls}`).join(' · ')}
+            {progress.partnerships.slice(-3).map((item) => `${item.runs} off ${item.balls}`).join(' · ')}
           </p>
         </article>
       </div>
