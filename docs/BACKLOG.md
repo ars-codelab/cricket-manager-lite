@@ -2,6 +2,8 @@
 
 ## Milestone 1: First Playable Custom Match
 
+Status: mostly implemented for a single generic innings. Remaining work is polish, stronger plausibility tuning, and real teams/players.
+
 ### Story: Configure A Match
 
 As a cricket fan, I want to choose a format, venue, pitch, and weather so that I can create a match scenario with recognizable cricket conditions.
@@ -61,6 +63,8 @@ Acceptance criteria:
 - Explanations avoid claiming certainty for probabilistic outcomes.
 
 ## Milestone 2: Engine Confidence
+
+Status: started. Vitest is installed with deterministic RNG, fixture validation, and scorecard accounting tests.
 
 ### Story: Validate Fixtures
 
@@ -134,6 +138,8 @@ Acceptance criteria:
 - App handles incompatible saves with a clear message.
 
 ## Milestone 5: Offline Distribution
+
+Status: started. Relative production builds, PWA manifest, basic service worker, GitHub Pages workflow, and release ZIP artifact workflow are in place.
 
 ### Story: Install And Download The Game
 

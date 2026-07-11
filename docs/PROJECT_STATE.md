@@ -11,26 +11,30 @@ Build a downloadable, offline-first mobile web cricket management game inspired 
 - Persistence target: IndexedDB for v1 saves, PWA cache for offline app shell and seed data.
 - Engine target: deterministic TypeScript simulation, eventually wrapped in a Web Worker.
 - Current Node runtime: `18.19.1`; keep tooling Node 18-compatible unless the runtime is upgraded.
+- Build target: relative Vite assets for GitHub Pages subpaths and release ZIP distribution.
 
 ## Current Files
 
 - `research/match-conditions-tactical-simulator.md`: exported research on pitch, weather, venue, tactics, AI, DLS, and physics.
 - `research/condition-model-implementation-notes.md`: implementation digest derived from the research.
-- `src/lib/types.ts`: current condition and simulation types.
-- `src/lib/data.ts`: current venue, weather, pitch, and format scale data.
-- `src/lib/simulation.ts`: current deterministic projected-innings prototype.
-- `src/App.svelte`: current mobile prototype UI.
+- `src/lib/types.ts`: condition, scorecard, metadata, and simulation types.
+- `src/lib/data.ts`: venue matrix, weather, pitch, and format scale data.
+- `src/lib/simulation.ts`: deterministic ball-by-ball innings simulator.
+- `src/lib/validation.ts`: fixture validation helpers.
+- `src/App.svelte`: mobile custom match UI with scorecard and ball log.
 - `src/app.css`: current visual system and responsive styling.
+- `.github/workflows/pages.yml`: GitHub Pages build/deploy workflow.
+- `.github/workflows/release-zip.yml`: downloadable build artifact workflow.
 
 ## Product Direction
 
 The first playable milestone is a custom/friendly match simulator:
 
 - Choose format: T20, ODI, Test.
-- Choose venue, pitch, weather, and later day/night/dew settings.
+- Choose venue, pitch, weather, match time, outfield, and difficulty.
 - Adjust batting tactics.
-- Simulate deterministic cricket outcomes.
-- View condition readouts, tactic impacts, Test surface forecast, scorecard, and commentary.
+- Simulate deterministic ball-by-ball innings.
+- View condition readouts, tactic impacts, Test surface forecast, scorecard, ball log, and commentary.
 
 Later milestones add:
 
@@ -40,6 +44,22 @@ Later milestones add:
 - AI captaincy and difficulty levels.
 - Offline saves and import/export.
 - GitHub Pages and release ZIP distribution.
+
+## Current Implementation Checkpoints
+
+- Public project README, MIT license, data-source/legal notes, and Graphify setup docs are in place.
+- Vitest is installed with deterministic simulation and fixture validation coverage.
+- Full 29-venue condition matrix from the research notes is loaded as static fixtures.
+- Custom match controls include format, venue, weather, pitch, match time, outfield, difficulty, and batting tactics.
+- The simulator now produces ball events, batting card, bowling figures, extras, fall of wickets, partnerships, metadata, and recent commentary.
+- Static distribution groundwork is in place: relative Vite paths, web manifest, service worker, Pages workflow, and release ZIP workflow.
+
+## Known Technical Debt
+
+- Dependency audit currently flags Vite/esbuild dev-server advisories. The automated fix jumps to a breaking Vite 8 path, so this should be handled in a dedicated Node/tooling upgrade slice.
+- Current engine uses generic placeholder XIs; real team/player rosters are a later milestone.
+- Test cricket remains a simplified one-innings simulation with five-day forecast display, not full multi-innings match state.
+- Service worker is basic app-shell/runtime caching and should be hardened before public beta.
 
 ## GitHub
 
