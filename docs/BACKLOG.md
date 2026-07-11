@@ -6,74 +6,99 @@ Status: playable for a single generic innings with stateful over/wicket/custom s
 
 ### Story: Configure A Match
 
+Status: done.
+
 As a cricket fan, I want to choose a format, venue, pitch, and weather so that I can create a match scenario with recognizable cricket conditions.
 
 Acceptance criteria:
 
-- User can select T20, ODI, or Test.
-- User can select a venue from the curated venue list.
-- User can select weather and pitch profiles.
-- UI shows venue ratings and condition notes.
-- Selection changes produce deterministic simulation changes.
+- [x] User can select T20, ODI, or Test.
+- [x] User can select a venue from the curated venue list.
+- [x] User can select weather and pitch profiles.
+- [x] UI shows venue ratings and condition notes.
+- [x] Selection changes produce deterministic simulation changes.
 
 ### Story: Tune Batting Tactics
+
+Status: done.
 
 As a player, I want to adjust batting tactics so that I can respond to conditions like swing, spin, dew, and deteriorating pitches.
 
 Acceptance criteria:
 
-- User can set aggression, shot selection, pace plan, spin plan, and running risk.
-- UI explains the current tactical approach.
-- Tactical changes affect simulated scoring and wicket probabilities.
-- Defensive choices reduce scoring risk and scoring rate.
-- Attacking choices increase scoring rate and dismissal risk.
+- [x] User can set aggression, shot selection, pace plan, spin plan, and running risk.
+- [x] UI explains the current tactical approach.
+- [x] Tactical changes affect simulated scoring and wicket probabilities.
+- [x] Defensive choices reduce scoring risk and scoring rate.
+- [x] Attacking choices increase scoring rate and dismissal risk.
 
 ### Story: Simulate A Ball-By-Ball Innings
+
+Status: done.
 
 As a player, I want the innings to be simulated ball by ball so that the scorecard feels like cricket instead of a projected score.
 
 Acceptance criteria:
 
-- Engine tracks legal balls, overs, runs, wickets, extras, and innings end.
-- Engine supports T20 and ODI innings limits.
-- Engine supports simplified Test innings limits.
-- Same seed and inputs always produce the same innings.
-- Result stores engine version, ruleset version, seed, format, conditions, and tactics.
+- [x] Engine tracks legal balls, overs, runs, wickets, extras, and innings end.
+- [x] Engine supports T20 and ODI innings limits.
+- [x] Engine supports simplified Test innings limits.
+- [x] Same seed and inputs always produce the same innings.
+- [x] Result stores engine version, ruleset version, seed, format, conditions, and tactics.
 
 ### Story: Advance A Live Innings
+
+Status: done.
 
 As a player, I want to continue an innings in useful chunks so that I can make captaincy decisions between phases instead of watching a whole innings at once.
 
 Acceptance criteria:
 
-- User can advance one over, five overs, ten overs, to the next wicket, custom overs, or the full innings.
-- Engine advances from current state rather than revealing a precomputed innings.
-- User can choose the next bowler before continuing.
-- User can adjust batter intent, shot selection, pace plan, spin plan, and running before continuing.
-- User can adjust bowling length, line, field, variation use, pace plan, and spin plan before continuing.
-- Future deliveries change when tactical choices change.
+- [x] User can advance one over, five overs, ten overs, to the next wicket, custom overs, or the full innings.
+- [x] Engine advances from current state rather than revealing a precomputed innings.
+- [x] User can choose the next bowler before continuing.
+- [x] User can adjust batter intent, shot selection, pace plan, spin plan, and running before continuing.
+- [x] User can adjust bowling length, line, field, variation use, pace plan, and spin plan before continuing.
+- [x] Future deliveries change when tactical choices change.
+
+### Story: Chase A Target
+
+Status: done.
+
+As a player, I want to continue into a second innings so that I can play a full chase instead of only one batting effort.
+
+Acceptance criteria:
+
+- [x] User can start the next innings after innings one completes.
+- [x] The second innings uses a target derived from the first innings score.
+- [x] The engine stops the chase when the target is reached.
+- [x] The UI shows innings number and chase target context.
 
 ### Story: Read The Scorecard
+
+Status: done.
 
 As a player, I want to see scorecard details so that I can understand how the innings developed.
 
 Acceptance criteria:
 
-- UI shows innings score, overs, run rate, and par context.
-- UI shows batting card, bowling figures, extras, fall of wickets, and partnerships.
-- UI shows a recent ball log.
-- UI shows commentary tied to conditions and tactics.
+- [x] UI shows innings score, overs, run rate, and par context.
+- [x] UI shows batting card, bowling figures, extras, fall of wickets, and partnerships.
+- [x] UI shows a recent ball log.
+- [x] UI shows commentary tied to conditions and tactics.
 
 ### Story: Understand Conditions
+
+Status: done.
 
 As a cricket fan, I want the game to explain how venue, pitch, and weather influenced the innings so that outcomes feel fair.
 
 Acceptance criteria:
 
-- UI shows condition readout before and after simulation.
-- Test format shows five-day surface forecast.
-- Overcast, dew, spin-friendly, pace-friendly, and slow-pitch scenarios produce distinct advice.
-- Explanations avoid claiming certainty for probabilistic outcomes.
+- [x] UI shows condition readout before and after simulation.
+- [x] Test format shows five-day surface forecast.
+- [x] Overcast, dew, spin-friendly, pace-friendly, and slow-pitch scenarios produce distinct advice.
+- [x] Explanations avoid claiming certainty for probabilistic outcomes.
 
 ## Milestone 2: Engine Confidence
 
@@ -81,30 +106,34 @@ Status: started. Vitest is installed with deterministic RNG, stateful innings ad
 
 ### Story: Validate Fixtures
 
+Status: done.
+
 As a contributor, I want fixture validation so that venue and condition data stays consistent.
 
 Acceptance criteria:
 
-- Duplicate IDs are detected.
-- Venue ratings are restricted to the supported range.
-- Missing required fields are detected.
-- Validation can run in tests.
+- [x] Duplicate IDs are detected.
+- [x] Venue ratings are restricted to the supported range.
+- [x] Missing required fields are detected.
+- [x] Validation can run in tests.
 
 ### Story: Test Simulation Accounting
+
+Status: done.
 
 As a developer, I want engine tests so that scorecards remain internally consistent.
 
 Acceptance criteria:
 
-- Seeded randomness is deterministic.
-- Legal-ball counts match overs.
-- Score equals batter runs plus extras.
-- Wickets, fall of wickets, and partnerships are consistent.
-- Bulk simulations stay within plausible scoring ranges.
-- One-over advancement stops after six legal balls.
-- Next-wicket advancement stops when a wicket falls or innings completes.
-- Selected bowler is applied to the next simulated over.
-- Different live tactics can produce different future ball logs from the same starting state.
+- [x] Seeded randomness is deterministic.
+- [x] Legal-ball counts match overs.
+- [x] Score equals batter runs plus extras.
+- [x] Wickets, fall of wickets, and partnerships are consistent.
+- [x] Bulk simulations stay within plausible scoring ranges.
+- [x] One-over advancement stops after six legal balls.
+- [x] Next-wicket advancement stops when a wicket falls or innings completes.
+- [x] Selected bowler is applied to the next simulated over.
+- [x] Different live tactics can produce different future ball logs from the same starting state.
 
 ## Milestone 3: Teams And Rosters
 
