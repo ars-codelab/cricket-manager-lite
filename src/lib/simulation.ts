@@ -1,5 +1,16 @@
 import { formatScale, parForFormat, pitchProfiles, weatherProfiles } from './data'
-import type { BattingTactics, ConditionModifiers, MatchFormat, PitchType, SimulationResult, TestDayCondition, Venue, WeatherType } from './types'
+import type {
+  BattingTactics,
+  ConditionModifiers,
+  MatchConditions,
+  MatchFormat,
+  OutfieldCondition,
+  PitchType,
+  SimulationResult,
+  TestDayCondition,
+  Venue,
+  WeatherType,
+} from './types'
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
@@ -61,6 +72,24 @@ const combineModifiers = (base: ConditionModifiers, next: ConditionModifiers, sc
   return merged
 }
 
+const defaultConditions: MatchConditions = {
+  matchTime: 'Day',
+  outfield: 'Normal',
+  difficulty: 'Standard',
+}
+
+const matchTimeModifiers: Record<MatchConditions['matchTime'], ConditionModifiers> = {
+  Day: { timing: 1, swing: 1, seam: 1 },
+  'Day-Night': { swing: 1.15, seam: 1.08, timing: 0.92, edge: 1.08 },
+  Night: { swing: 1.08, timing: 0.95, fieldingDifficulty: 1.08 },
+}
+
+const outfieldModifiers: Record<OutfieldCondition, ConditionModifiers> = {
+  Slow: { boundary: 0.88, single: 1.08, timing: 0.96 },
+  Normal: { boundary: 1, single: 1, timing: 1 },
+  Fast: { boundary: 1.12, single: 0.96, timing: 1.04 },
+}
+
 export const buildTestForecast = (venue: Venue, weather: WeatherType): TestDayCondition[] => {
   const spinArc = venue.region === 'India' || venue.region === 'UAE' || venue.region === 'Bangladesh' ? 1.25 : 0.75
   const paceArc = venue.region === 'Australia' || venue.region === 'South Africa' ? 1.05 : 0.8
@@ -89,11 +118,13 @@ export const simulateInnings = (
   weatherId: WeatherType,
   pitchId: PitchType,
   tactics: BattingTactics,
+  conditions: Partial<MatchConditions> = {},
 ): SimulationResult => {
+  const matchConditions = { ...defaultConditions, ...conditions }
   const weather = weatherProfiles.find((item) => item.id === weatherId) ?? weatherProfiles[0]
   const pitch = pitchProfiles.find((item) => item.id === pitchId) ?? pitchProfiles[0]
   const scale = formatScale[format]
-  const random = createSeededRandom(`${venue.id}-${format}-${weatherId}-${pitchId}-${JSON.stringify(tactics)}`)
+  const random = createSeededRandom(`${venue.id}-${format}-${weatherId}-${pitchId}-${JSON.stringify(tactics)}-${JSON.stringify(matchConditions)}`)
   const par = parForFormat(venue, format)
   const forecast = buildTestForecast(venue, weatherId)
   const activeDay = format === 'Test' ? forecast[0] : null
@@ -101,6 +132,8 @@ export const simulateInnings = (
   let modifiers: ConditionModifiers = {}
   modifiers = combineModifiers(modifiers, weather.modifiers, scale)
   modifiers = combineModifiers(modifiers, pitch.modifiers, scale)
+  modifiers = combineModifiers(modifiers, matchTimeModifiers[matchConditions.matchTime], scale)
+  modifiers = combineModifiers(modifiers, outfieldModifiers[matchConditions.outfield], 1)
   modifiers = combineModifiers(modifiers, tacticModifiers(tactics), 1)
 
   const venueBatting = venue.battingEase / 7
@@ -150,12 +183,14 @@ export const simulateInnings = (
       `${venue.name}: pace ${venue.paceCarry}/10, swing ${venue.swing}/10, spin ${venue.spin}/10, batting ${venue.battingEase}/10.`,
       `${weather.id}: ${weather.summary}`,
       `${pitch.id} pitch: ${pitch.summary}`,
+      `${matchConditions.matchTime} match with ${matchConditions.outfield.toLowerCase()} outfield.`,
       `Format scale: ${format} applies ${Math.round(scale * 100)}% of environmental force.`,
     ],
     tacticalReadout: [
       `${tactics.aggression} intent with ${tactics.shots.toLowerCase()} shots.`,
       `Pace plan: ${tactics.pacePlan}; spin plan: ${tactics.spinPlan}.`,
       `Running risk: ${tactics.running}.`,
+      `Difficulty: ${matchConditions.difficulty} changes guidance/AI quality later, not hidden result rigging.`,
     ],
     log: [
       `Powerplay read: ${venue.swing + venue.seam >= 14 || weatherId === 'Overcast' ? 'new ball threat is high' : 'batters can settle normally'}.`,

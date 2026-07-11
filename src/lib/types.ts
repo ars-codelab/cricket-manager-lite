@@ -7,6 +7,9 @@ export type ShotSelection = 'Ground' | 'Mixed' | 'Aerial'
 export type PacePlan = 'Play late' | 'Front-foot drive' | 'Back-foot play' | 'Short-ball caution' | 'Counterattack'
 export type SpinPlan = 'Play straight' | 'Sweep' | 'Use feet' | 'Rotate strike' | 'Defend'
 export type RunningRisk = 'Conservative' | 'Normal' | 'Sharp'
+export type Difficulty = 'Casual' | 'Standard' | 'Expert' | 'Simulation'
+export type MatchTime = 'Day' | 'Day-Night' | 'Night'
+export type OutfieldCondition = 'Slow' | 'Normal' | 'Fast'
 
 export type Venue = {
   id: string
@@ -64,6 +67,12 @@ export type BattingTactics = {
   pacePlan: PacePlan
   spinPlan: SpinPlan
   running: RunningRisk
+}
+
+export type MatchConditions = {
+  matchTime: MatchTime
+  outfield: OutfieldCondition
+  difficulty: Difficulty
 }
 
 export type TestDayCondition = {

@@ -36,6 +36,15 @@ describe('simulateInnings', () => {
     expect(second).toEqual(first)
   })
 
+  it('lets custom match conditions change the deterministic outcome', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const day = simulateInnings(venue, 'T20', 'Humid', 'Flat', tactics, { matchTime: 'Day', outfield: 'Normal', difficulty: 'Standard' })
+    const night = simulateInnings(venue, 'T20', 'Humid', 'Flat', tactics, { matchTime: 'Day-Night', outfield: 'Fast', difficulty: 'Standard' })
+
+    expect(night).not.toEqual(day)
+    expect(night.conditionReadout).toContain('Day-Night match with fast outfield.')
+  })
+
   it('keeps limited overs innings within expected bounds', () => {
     const venue = venues.find((item) => item.id === 'chepauk') ?? venues[0]
     const result = simulateInnings(venue, 'ODI', 'Dry', 'Dusty', tactics)

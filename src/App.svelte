@@ -1,9 +1,24 @@
 <script lang="ts">
   import { parForFormat, pitchProfiles, venues, weatherProfiles } from './lib/data'
   import { simulateInnings } from './lib/simulation'
-  import type { Aggression, MatchFormat, PacePlan, PitchType, RunningRisk, ShotSelection, SpinPlan, WeatherType } from './lib/types'
+  import type {
+    Aggression,
+    Difficulty,
+    MatchFormat,
+    MatchTime,
+    OutfieldCondition,
+    PacePlan,
+    PitchType,
+    RunningRisk,
+    ShotSelection,
+    SpinPlan,
+    WeatherType,
+  } from './lib/types'
 
   const formats: MatchFormat[] = ['T20', 'ODI', 'Test']
+  const matchTimes: MatchTime[] = ['Day', 'Day-Night', 'Night']
+  const outfields: OutfieldCondition[] = ['Slow', 'Normal', 'Fast']
+  const difficulties: Difficulty[] = ['Casual', 'Standard', 'Expert', 'Simulation']
   const aggressions: Aggression[] = ['Defensive', 'Balanced', 'Positive', 'Aggressive', 'Attack']
   const shotSelections: ShotSelection[] = ['Ground', 'Mixed', 'Aerial']
   const pacePlans: PacePlan[] = ['Play late', 'Front-foot drive', 'Back-foot play', 'Short-ball caution', 'Counterattack']
@@ -14,6 +29,9 @@
   let venueId = 'wankhede'
   let weather: WeatherType = 'Humid'
   let pitch: PitchType = 'Flat'
+  let matchTime: MatchTime = 'Day-Night'
+  let outfield: OutfieldCondition = 'Normal'
+  let difficulty: Difficulty = 'Standard'
   let aggression: Aggression = 'Positive'
   let shots: ShotSelection = 'Mixed'
   let pacePlan: PacePlan = 'Play late'
@@ -21,7 +39,7 @@
   let running: RunningRisk = 'Normal'
 
   $: venue = venues.find((item) => item.id === venueId) ?? venues[0]
-  $: result = simulateInnings(venue, format, weather, pitch, { aggression, shots, pacePlan, spinPlan, running })
+  $: result = simulateInnings(venue, format, weather, pitch, { aggression, shots, pacePlan, spinPlan, running }, { matchTime, outfield, difficulty })
   $: par = parForFormat(venue, format)
 </script>
 
@@ -77,6 +95,33 @@
         <select bind:value={pitch}>
           {#each pitchProfiles as item}
             <option value={item.id}>{item.id}</option>
+          {/each}
+        </select>
+      </label>
+
+      <label>
+        Match time
+        <select bind:value={matchTime}>
+          {#each matchTimes as item}
+            <option value={item}>{item}</option>
+          {/each}
+        </select>
+      </label>
+
+      <label>
+        Outfield
+        <select bind:value={outfield}>
+          {#each outfields as item}
+            <option value={item}>{item}</option>
+          {/each}
+        </select>
+      </label>
+
+      <label>
+        Difficulty
+        <select bind:value={difficulty}>
+          {#each difficulties as item}
+            <option value={item}>{item}</option>
           {/each}
         </select>
       </label>
