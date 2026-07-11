@@ -128,6 +128,17 @@ describe('stateful innings engine', () => {
 
     expect(attacking.scorecard.balls).not.toEqual(defensive.scorecard.balls)
   })
+
+  it('stops a chase once the target is reached', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const chase = createInningsState(venue, 'T20', 'Humid', 'Flat', tactics, {}, { inningsNumber: 2, targetScore: 1 })
+
+    advanceInnings(chase, { mode: 'innings', battingTactics: tactics })
+
+    expect(chase.completed).toBe(true)
+    expect(chase.score).toBeGreaterThanOrEqual(1)
+    expect(chase.scorecard.balls.length).toBeGreaterThan(0)
+  })
 })
 
 describe('buildTestForecast', () => {

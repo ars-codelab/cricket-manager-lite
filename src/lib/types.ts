@@ -203,6 +203,7 @@ export type SimulationResult = {
 }
 
 export type InningsState = {
+  inningsNumber: number
   score: number
   wickets: number
   legalBalls: number
@@ -214,6 +215,7 @@ export type InningsState = {
   partnershipBatters: string[]
   completed: boolean
   maxLegalBalls: number
+  targetScore?: number
   par: number
   metadata: SimulationMetadata
   forecast: TestDayCondition[]

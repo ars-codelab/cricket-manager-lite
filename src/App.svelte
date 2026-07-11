@@ -130,6 +130,8 @@
   $: currentStriker = isComplete ? null : result.scorecard.batting[inningsState.strikerIndex]
   $: currentPartner = isComplete ? null : result.scorecard.batting[inningsState.nonStrikerIndex]
   $: currentOverNumber = Math.floor(inningsState.legalBalls / 6)
+  $: inningsLabel = `${ordinal(inningsState.inningsNumber)} innings`
+  $: chaseLabel = typeof inningsState.targetScore === 'number' ? `Target ${inningsState.targetScore}` : 'No target'
   $: nextBallKey = `${lastSimulationKey}-${progress.legalBalls}-${progress.wickets}-${currentStriker?.id ?? 'complete'}`
   $: if (nextBallKey !== lastNextBallKey) {
     const storedPlan = currentStriker?.id ? batterPlans[currentStriker.id] : null
@@ -144,6 +146,13 @@
   $: venueSummary = `${venue.city}, ${venue.country} · ${weather} · ${pitch} pitch`
 
   const bowlingOvers = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`
+
+  const ordinal = (value: number) => {
+    if (value === 1) return '1st'
+    if (value === 2) return '2nd'
+    if (value === 3) return '3rd'
+    return `${value}th`
+  }
 
   const currentBattingTactics = (): BattingTactics => ({ aggression, shots, pacePlan, spinPlan, running })
 
@@ -186,6 +195,24 @@
       bowlingTactics: currentLiveBowlingTactics(),
     })
     inningsState = inningsState
+  }
+
+  const startNextInnings = () => {
+    if (!inningsState.completed || inningsState.inningsNumber >= 2) return
+
+    const targetScore = progress.score + 1
+    inningsState = createInningsState(
+      venue,
+      format,
+      weather,
+      pitch,
+      currentBattingTactics(),
+      { matchTime, outfield, difficulty },
+      { inningsNumber: 2, targetScore },
+    )
+    batterPlans = {}
+    lastNextBallKey = ''
+    nextBowlerId = defaultBowlerForOver(inningsState)
   }
 
   const revealOvers = (overs: number) => {
@@ -541,6 +568,7 @@
         <span>Match Centre</span>
         <strong>{progress.score}/{progress.wickets} in {progress.overs}</strong>
       </div>
+      <p class="muted">{inningsLabel}{typeof inningsState.targetScore === 'number' ? ` · ${chaseLabel}` : ''}</p>
 
       <div class="sim-controls">
         <button type="button" on:click={() => revealOvers(1)} disabled={isComplete}>+1 over</button>
@@ -559,6 +587,20 @@
         <button type="button" on:click={() => revealOvers(Number(customOvers) || 1)} disabled={isComplete}>Sim custom</button>
         <span>{result.scorecard.balls.length === 0 ? 'Ready to start.' : isComplete ? 'Innings complete.' : `${result.scorecard.balls.length} events simulated.`}</span>
       </div>
+
+      {#if isComplete && inningsState.inningsNumber === 1}
+        <div class="custom-sim">
+          <span>First innings done. Start the chase at {progress.score + 1}.</span>
+          <button type="button" on:click={startNextInnings}>Start next innings</button>
+        </div>
+      {/if}
+
+      {#if isComplete && inningsState.inningsNumber === 2}
+        <div class="custom-sim">
+          <span>Chase complete. Final innings finished at {progress.score}/{progress.wickets}.</span>
+          <button type="button" on:click={resetInnings}>New match</button>
+        </div>
+      {/if}
 
       {#if !isComplete}
         <div class="live-plan">

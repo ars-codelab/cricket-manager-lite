@@ -303,6 +303,7 @@ export const createInningsState = (
   pitchId: PitchType,
   tactics: BattingTactics,
   conditions: Partial<MatchConditions> = {},
+  options: { inningsNumber?: number; targetScore?: number } = {},
 ): InningsState => {
   const matchConditions = { ...defaultConditions, ...conditions }
   const weather = weatherProfiles.find((item) => item.id === weatherId) ?? weatherProfiles[0]
@@ -316,6 +317,7 @@ export const createInningsState = (
   const bowling: BowlerFigures[] = genericBowlers.map((bowler) => ({ ...bowler, balls: 0, maidens: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }))
 
   return {
+    inningsNumber: options.inningsNumber ?? 1,
     score: 0,
     wickets: 0,
     legalBalls: 0,
@@ -327,6 +329,7 @@ export const createInningsState = (
     partnershipBatters: [batting[0].name, batting[1].name],
     completed: false,
     maxLegalBalls: maxLegalBalls(format),
+    targetScore: options.targetScore,
     par,
     metadata: buildMetadata(seed, format, venue, weatherId, pitchId, tactics, matchConditions),
     forecast,
@@ -564,7 +567,10 @@ const simulateDelivery = (state: InningsState, command: AdvanceInningsCommand) =
         : `${event.over}: ${event.totalRuns} run${event.totalRuns === 1 ? '' : 's'}${event.extraType ? ` (${event.extraType})` : ''}.`
   state.scorecard.balls.push(event)
   recalculateMaidens(state.scorecard)
-  state.completed = state.legalBalls >= state.maxLegalBalls || state.wickets >= 10
+  state.completed =
+    state.legalBalls >= state.maxLegalBalls ||
+    state.wickets >= 10 ||
+    (typeof state.targetScore === 'number' && state.score >= state.targetScore)
 }
 
 export const advanceInnings = (state: InningsState, command: AdvanceInningsCommand): InningsState => {
@@ -586,7 +592,10 @@ export const advanceInnings = (state: InningsState, command: AdvanceInningsComma
     if ((command.mode === 'legal-balls' || command.mode === 'overs') && state.legalBalls >= targetLegalBalls) break
   }
 
-  state.completed = state.legalBalls >= state.maxLegalBalls || state.wickets >= 10
+  state.completed =
+    state.legalBalls >= state.maxLegalBalls ||
+    state.wickets >= 10 ||
+    (typeof state.targetScore === 'number' && state.score >= state.targetScore)
   rebuildOpenPartnership(state)
   return state
 }
@@ -612,6 +621,7 @@ export const inningsStateToResult = (state: InningsState): SimulationResult => {
       `Powerplay read: ${venue.swing + venue.seam >= 14 || weatherId === 'Overcast' ? 'new ball threat is high' : 'batters can settle normally'}.`,
       `Middle phase: ${venue.spin >= 7 || pitchId === 'Dusty' ? 'spin matchups matter' : 'pace changes and field settings carry more value'}.`,
       `Toss lean: ${venue.toss}${weatherId === 'Dew' ? ' with extra chase value under dew' : ''}.`,
+      ...(typeof state.targetScore === 'number' ? [`Target: ${state.targetScore}.`] : []),
       ...state.scorecard.balls.slice(-8).map((event) => event.commentary),
     ],
   }
