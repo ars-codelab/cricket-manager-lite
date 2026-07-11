@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { parForFormat, pitchProfiles, venues, weatherProfiles } from './lib/data'
-  import { advanceInnings, createInningsState, defaultBowlerForOver, defaultBowlingTactics, inningsStateToResult } from './lib/simulation'
+  import { advanceInnings, createInningsState, defaultBowlerForOver, defaultBowlingTactics, inningsStateToResult, maxBallsPerBowler } from './lib/simulation'
   import type {
     Aggression,
     BattingTactics,
@@ -34,6 +34,8 @@
     margin: string
     playerOfTheMatch: string
     playerReason: string
+    topBatters: { name: string; detail: string; points: number }[]
+    topBowlers: { name: string; detail: string; points: number }[]
   }
   type SavedSetup = {
     format: MatchFormat
@@ -144,6 +146,8 @@
   $: currentStriker = isComplete ? null : result.scorecard.batting[inningsState.strikerIndex]
   $: currentPartner = isComplete ? null : result.scorecard.batting[inningsState.nonStrikerIndex]
   $: currentBowler = result.scorecard.bowling.find((bowler) => bowler.id === nextBowlerId) ?? result.scorecard.bowling[0]
+  $: bowlerUsage = buildBowlerUsage(result.scorecard.bowling)
+  $: currentBowlerUsage = bowlerUsage[currentBowler?.id ?? '']
   $: currentOverNumber = Math.floor(inningsState.legalBalls / 6)
   $: inningsLabel = `${ordinal(inningsState.inningsNumber)} innings`
   $: chaseLabel = typeof inningsState.targetScore === 'number' ? `Target ${inningsState.targetScore}` : 'No target'
@@ -172,6 +176,27 @@
   const strikeRate = (batter: BatterScore | null) => (batter && batter.balls > 0 ? ((batter.runs / batter.balls) * 100).toFixed(1) : '0.0')
   const economyRate = (bowler: BowlerFigures | undefined) => (bowler && bowler.balls > 0 ? (bowler.runs / (bowler.balls / 6)).toFixed(2) : '0.00')
   const deliveryLabel = (runs: number) => (runs === 0 ? 'dot' : `${runs}`)
+  const fatigueLabel = (fatigue: number) => (fatigue >= 82 ? 'Spent' : fatigue >= 58 ? 'Tiring' : fatigue >= 32 ? 'Warm' : 'Fresh')
+
+  const buildBowlerUsage = (bowlers: BowlerFigures[]) => {
+    const maxBalls = maxBallsPerBowler(format)
+
+    return Object.fromEntries(
+      bowlers.map((bowler) => {
+        const fatigue = Number.isFinite(maxBalls) ? Math.min(100, Math.round((bowler.balls / maxBalls) * 100)) : Math.min(100, Math.round((bowler.balls / 72) * 100))
+        const remainingBalls = Number.isFinite(maxBalls) ? Math.max(0, maxBalls - bowler.balls) : Number.POSITIVE_INFINITY
+        return [
+          bowler.id,
+          {
+            fatigue,
+            fatigueLabel: fatigueLabel(fatigue),
+            remainingOvers: Number.isFinite(remainingBalls) ? bowlingOvers(remainingBalls) : 'open',
+            exhausted: Number.isFinite(maxBalls) && remainingBalls <= 0,
+          },
+        ]
+      }),
+    )
+  }
 
   const buildOverStream = (balls: SimulationResult['scorecard']['balls']) => {
     const overs: { over: number; runs: number; wickets: number; balls: string[] }[] = []
@@ -211,35 +236,40 @@
     const remainingWickets = Math.max(0, 10 - second.wickets)
     const winner = chasingSideWon ? 'Chasing side won' : 'Defending side won'
     const margin = chasingSideWon ? `by ${remainingWickets} wickets` : `by ${target - second.score - 1} runs`
-    const candidates = [
+    const battingCandidates = [
       ...first.scorecard.batting.map((batter) => ({
         name: `Defending batter ${batter.name}`,
-        reason: `${batter.runs} runs off ${batter.balls} balls`,
+        detail: `${batter.runs} runs off ${batter.balls} balls`,
         points: batterPoints(batter),
-      })),
-      ...first.scorecard.bowling.map((bowler) => ({
-        name: `Defending bowler ${bowler.name}`,
-        reason: `${bowler.wickets}/${bowler.runs} in ${bowlingOvers(bowler.balls)} overs`,
-        points: bowlerPoints(bowler),
       })),
       ...second.scorecard.batting.map((batter) => ({
         name: `Chasing batter ${batter.name}`,
-        reason: `${batter.runs} runs off ${batter.balls} balls`,
+        detail: `${batter.runs} runs off ${batter.balls} balls`,
         points: batterPoints(batter),
+      })),
+    ]
+    const bowlingCandidates = [
+      ...first.scorecard.bowling.map((bowler) => ({
+        name: `Defending bowler ${bowler.name}`,
+        detail: `${bowler.wickets}/${bowler.runs} in ${bowlingOvers(bowler.balls)} overs`,
+        points: bowlerPoints(bowler),
       })),
       ...second.scorecard.bowling.map((bowler) => ({
         name: `Chasing bowler ${bowler.name}`,
-        reason: `${bowler.wickets}/${bowler.runs} in ${bowlingOvers(bowler.balls)} overs`,
+        detail: `${bowler.wickets}/${bowler.runs} in ${bowlingOvers(bowler.balls)} overs`,
         points: bowlerPoints(bowler),
       })),
     ]
+    const candidates = [...battingCandidates, ...bowlingCandidates]
     const bestPlayer = candidates.reduce((best, current) => (current.points > best.points ? current : best), candidates[0])
 
     return {
       winner,
       margin,
       playerOfTheMatch: bestPlayer.name,
-      playerReason: bestPlayer.reason,
+      playerReason: bestPlayer.detail,
+      topBatters: battingCandidates.sort((first, second) => second.points - first.points).slice(0, 3),
+      topBowlers: bowlingCandidates.sort((first, second) => second.points - first.points).slice(0, 3),
     }
   }
 
@@ -666,6 +696,48 @@
         </div>
       </div>
 
+      {#if isComplete && inningsState.inningsNumber === 1}
+        <section class="innings-break-panel">
+          <div>
+            <span>Innings break</span>
+            <strong>Target {progress.score + 1}</strong>
+            <small>First innings closed at {progress.score}/{progress.wickets} in {progress.overs}.</small>
+          </div>
+          <button type="button" on:click={startNextInnings}>Start chase</button>
+        </section>
+      {/if}
+
+      {#if isComplete && inningsState.inningsNumber === 2 && matchResult}
+        <section class="game-over-panel">
+          <div class="result-banner">
+            <span>Game over</span>
+            <strong>{matchResult.winner} {matchResult.margin}</strong>
+            <small>1st innings {firstInningsResult?.score}/{firstInningsResult?.wickets} · 2nd innings {progress.score}/{progress.wickets}</small>
+          </div>
+
+          <div class="result-grid">
+            <article>
+              <span>Player of the match</span>
+              <strong>{matchResult.playerOfTheMatch}</strong>
+              <small>{matchResult.playerReason}</small>
+            </article>
+            <article>
+              <span>Top batters</span>
+              {#each matchResult.topBatters as player}
+                <small><b>{player.name}</b> · {player.detail}</small>
+              {/each}
+            </article>
+            <article>
+              <span>Top bowlers</span>
+              {#each matchResult.topBowlers as player}
+                <small><b>{player.name}</b> · {player.detail}</small>
+              {/each}
+            </article>
+          </div>
+          <button type="button" on:click={resetInnings}>New match</button>
+        </section>
+      {/if}
+
       <div class="match-dashboard">
         <article class="matchup-card striker">
           <span>On strike</span>
@@ -684,7 +756,17 @@
             <b>{currentBowler?.wickets ?? 0}/{currentBowler?.runs ?? 0}</b>
             <small>{bowlingOvers(currentBowler?.balls ?? 0)} ov · Econ {economyRate(currentBowler)}</small>
           </div>
-          <small>{liveBowlingLength} · {liveBowlingLine} · {liveField}</small>
+          <small>
+            {liveBowlingLength} · {liveBowlingLine} · {liveField}
+            {#if currentBowlerUsage}
+              · Fatigue {currentBowlerUsage.fatigue}% ({currentBowlerUsage.fatigueLabel}) · {currentBowlerUsage.remainingOvers} left
+            {/if}
+          </small>
+          {#if currentBowlerUsage}
+            <div class="fatigue-meter" aria-label={`Fatigue ${currentBowlerUsage.fatigue}%`}>
+              <span style={`width: ${currentBowlerUsage.fatigue}%`}></span>
+            </div>
+          {/if}
         </article>
       </div>
 
@@ -747,25 +829,6 @@
           </div>
         {/if}
       </article>
-
-      {#if isComplete && inningsState.inningsNumber === 1}
-        <div class="custom-sim">
-          <span>First innings done. Start the chase at {progress.score + 1}.</span>
-          <button type="button" on:click={startNextInnings}>Start next innings</button>
-        </div>
-      {/if}
-
-      {#if isComplete && inningsState.inningsNumber === 2 && matchResult}
-        <div class="custom-sim">
-          <span>
-            {matchResult.winner} {matchResult.margin}. 1st innings {firstInningsResult?.score}/{firstInningsResult?.wickets}, 2nd innings {progress.score}/{progress.wickets}.
-          </span>
-        </div>
-        <div class="custom-sim">
-          <span>Player of the match: {matchResult.playerOfTheMatch} for {matchResult.playerReason}.</span>
-          <button type="button" on:click={resetInnings}>New match</button>
-        </div>
-      {/if}
 
       {#if !isComplete}
         <div class="live-plan">
@@ -833,7 +896,9 @@
               Bowler
               <select bind:value={nextBowlerId}>
                 {#each result.scorecard.bowling as bowler}
-                  <option value={bowler.id}>{bowler.name}</option>
+                  <option value={bowler.id} disabled={bowlerUsage[bowler.id]?.exhausted}>
+                    {bowler.name} · {bowlingOvers(bowler.balls)} ov · {bowlerUsage[bowler.id]?.remainingOvers ?? 'open'} left · {bowlerUsage[bowler.id]?.fatigueLabel ?? 'Fresh'}
+                  </option>
                 {/each}
               </select>
             </label>

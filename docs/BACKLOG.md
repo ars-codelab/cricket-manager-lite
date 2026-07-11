@@ -73,6 +73,20 @@ Acceptance criteria:
 - [x] The second innings uses a target derived from the first innings score.
 - [x] The engine stops the chase when the target is reached.
 - [x] The UI shows innings number and chase target context.
+- [x] The innings-break action is visible near the top of the match screen.
+
+### Story: Finish A Match
+
+Status: done.
+
+As a player, I want a clear game-over screen so that the match feels complete when both innings finish.
+
+Acceptance criteria:
+
+- [x] UI declares the winner and margin after the second innings.
+- [x] UI shows both innings totals.
+- [x] UI shows player of the match.
+- [x] UI shows top batters and top bowlers.
 
 ### Story: Read The Scorecard
 
@@ -147,6 +161,10 @@ Acceptance criteria:
 - [x] Next-wicket advancement stops when a wicket falls or innings completes.
 - [x] Selected bowler is applied to the next simulated over.
 - [x] Different live tactics can produce different future ball logs from the same starting state.
+- [x] T20 bowlers are capped at four overs.
+- [x] ODI bowlers are capped at ten overs.
+- [x] Opening bowlers are preferred in realistic early spells.
+- [x] Manual bowler choice applies to the next over, not every over in a multi-over simulation.
 
 ## Milestone 3: Teams And Rosters
 

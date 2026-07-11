@@ -11,6 +11,19 @@ const tactics: BattingTactics = {
   running: 'Normal',
 }
 
+const overBowlers = (balls: ReturnType<typeof simulateInnings>['scorecard']['balls']) => {
+  const bowlers: string[] = []
+  let legalBalls = 0
+
+  for (const ball of balls) {
+    const overNumber = Math.floor(legalBalls / 6)
+    bowlers[overNumber] ??= ball.bowlerId
+    if (ball.legal) legalBalls += 1
+  }
+
+  return bowlers
+}
+
 describe('createSeededRandom', () => {
   it('returns the same sequence for the same seed', () => {
     const first = createSeededRandom('wankhede-flat-humid')
@@ -68,6 +81,15 @@ describe('simulateInnings', () => {
     expect(result.overs).toBe(`${Math.floor(legalBalls / 6)}.${legalBalls % 6}`)
     expect(result.metadata.engineVersion).toMatch(/^\d+\.\d+\.\d+$/)
   })
+
+  it('enforces limited-overs bowler caps', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const t20 = simulateInnings(venue, 'T20', 'Humid', 'Flat', tactics)
+    const odi = simulateInnings(venue, 'ODI', 'Humid', 'Flat', tactics)
+
+    expect(Math.max(...t20.scorecard.bowling.map((bowler) => bowler.balls))).toBeLessThanOrEqual(24)
+    expect(Math.max(...odi.scorecard.bowling.map((bowler) => bowler.balls))).toBeLessThanOrEqual(60)
+  })
 })
 
 describe('stateful innings engine', () => {
@@ -103,6 +125,16 @@ describe('stateful innings engine', () => {
     advanceInnings(state, { mode: 'overs', overs: 1, battingTactics: tactics, bowlerId: 'bowler-4' })
 
     expect(new Set(state.scorecard.balls.map((ball) => ball.bowlerId))).toEqual(new Set(['bowler-4']))
+    expect(state.scorecard.bowling.find((bowler) => bowler.id === 'bowler-4')?.balls).toBe(6)
+  })
+
+  it('uses opening bowlers up front and only applies manual bowler choice to the next over', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const state = createInningsState(venue, 'T20', 'Humid', 'Flat', tactics)
+
+    advanceInnings(state, { mode: 'overs', overs: 4, battingTactics: tactics, bowlerId: 'bowler-4' })
+
+    expect(overBowlers(state.scorecard.balls).slice(0, 4)).toEqual(['bowler-4', 'bowler-2', 'bowler-1', 'bowler-2'])
     expect(state.scorecard.bowling.find((bowler) => bowler.id === 'bowler-4')?.balls).toBe(6)
   })
 

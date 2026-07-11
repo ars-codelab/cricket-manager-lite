@@ -351,6 +351,78 @@ input {
   gap: 10px;
 }
 
+.innings-break-panel,
+.game-over-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(248, 255, 248, 0.2);
+  background: rgba(248, 255, 248, 0.96);
+  color: #12201b;
+}
+
+.innings-break-panel {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.innings-break-panel div,
+.result-banner,
+.result-grid article {
+  display: grid;
+  gap: 6px;
+}
+
+.innings-break-panel span,
+.game-over-panel span,
+.result-grid span {
+  color: #8f5d05;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.innings-break-panel strong,
+.result-banner strong {
+  color: #173d30;
+  font-size: clamp(1.8rem, 5vw, 3.4rem);
+  line-height: 0.96;
+}
+
+.innings-break-panel button,
+.game-over-panel button {
+  min-height: 48px;
+  border-radius: 999px;
+  padding: 0 18px;
+  background: #f3c44f;
+  color: #1f271f;
+  font-weight: 900;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: 1.1fr repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.result-grid article {
+  min-height: 118px;
+  padding: 12px;
+  background: #e9f2df;
+}
+
+.result-grid strong {
+  color: #173d30;
+  font-size: 1.2rem;
+}
+
+.result-grid small,
+.innings-break-panel small,
+.result-banner small {
+  color: #4a5d52;
+}
+
 .matchup-card {
   display: grid;
   gap: 10px;
@@ -396,6 +468,18 @@ input {
 .stat-line b {
   font-size: 2.1rem;
   line-height: 1;
+}
+
+.fatigue-meter {
+  height: 8px;
+  overflow: hidden;
+  background: rgba(23, 66, 52, 0.16);
+}
+
+.fatigue-meter span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #2f8f5d, #f3c44f 58%, #853626);
 }
 
 .tempo-bar {
@@ -692,6 +776,8 @@ input {
   .match-scorebug,
   .match-dashboard,
   .tempo-bar,
+  .innings-break-panel,
+  .result-grid,
   .custom-sim,
   .live-plan {
     grid-template-columns: 1fr;

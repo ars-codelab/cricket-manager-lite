@@ -176,6 +176,32 @@ const maxLegalBalls = (format: MatchFormat) => {
   return 540
 }
 
+export const maxBallsPerBowler = (format: MatchFormat) => {
+  if (format === 'T20') return 24
+  if (format === 'ODI') return 60
+  return Number.POSITIVE_INFINITY
+}
+
+const bowlerForPartialOver = (state: InningsState, targetOverNumber: number) => {
+  let legalBalls = 0
+
+  for (const ball of state.scorecard.balls) {
+    const overNumber = Math.floor(legalBalls / 6)
+    if (overNumber === targetOverNumber) return ball.bowlerId
+    if (ball.legal) legalBalls += 1
+  }
+
+  return null
+}
+
+const lastLegalBowlerId = (state: InningsState) => {
+  for (const ball of state.scorecard.balls.slice().reverse()) {
+    if (ball.legal) return ball.bowlerId
+  }
+
+  return null
+}
+
 const formatBaseWeights = (format: MatchFormat) => {
   if (format === 'T20') {
     return { dot: 0.31, single: 0.34, two: 0.075, three: 0.01, four: 0.12, six: 0.045, wicket: 0.042, wide: 0.022, noBall: 0.004, bye: 0.006, legBye: 0.006 }
@@ -438,10 +464,39 @@ const rebuildOpenPartnership = (state: InningsState) => {
   )
 }
 
-export const defaultBowlerForOver = (state: InningsState, overNumber = Math.floor(state.legalBalls / 6)) =>
-  state.scorecard.bowling[overNumber % state.scorecard.bowling.length]?.id ?? state.scorecard.bowling[0]?.id ?? ''
+export const defaultBowlerForOver = (state: InningsState, overNumber = Math.floor(state.legalBalls / 6)) => {
+  const existingBowler = bowlerForPartialOver(state, overNumber)
+  if (existingBowler) return existingBowler
 
-const simulateDelivery = (state: InningsState, command: AdvanceInningsCommand) => {
+  const maxBalls = maxBallsPerBowler(state.metadata.format)
+  const previousBowler = state.legalBalls % 6 === 0 ? lastLegalBowlerId(state) : null
+  const eligible = state.scorecard.bowling.filter((bowler) => bowler.balls < maxBalls && bowler.id !== previousBowler)
+  const pool = eligible.length ? eligible : state.scorecard.bowling.filter((bowler) => bowler.balls < maxBalls)
+  const openingSpellOvers = state.metadata.format === 'T20' ? 4 : state.metadata.format === 'ODI' ? 10 : 0
+  const preferredOpeningBowler = state.scorecard.bowling[overNumber % 2]?.id
+
+  if (overNumber < openingSpellOvers && pool.some((bowler) => bowler.id === preferredOpeningBowler)) {
+    return preferredOpeningBowler
+  }
+
+  return [...pool].sort((first, second) => first.balls - second.balls)[0]?.id ?? state.scorecard.bowling[0]?.id ?? ''
+}
+
+const resolveBowlerId = (state: InningsState, requestedBowlerId: string | undefined, requestedBowlerOver: number) => {
+  const overNumber = Math.floor(state.legalBalls / 6)
+  const existingBowler = bowlerForPartialOver(state, overNumber)
+  if (existingBowler) return existingBowler
+
+  if (requestedBowlerId && overNumber === requestedBowlerOver) {
+    const bowler = state.scorecard.bowling.find((item) => item.id === requestedBowlerId)
+    const previousBowler = state.legalBalls % 6 === 0 ? lastLegalBowlerId(state) : null
+    if (bowler && bowler.balls < maxBallsPerBowler(state.metadata.format) && bowler.id !== previousBowler) return bowler.id
+  }
+
+  return defaultBowlerForOver(state, overNumber)
+}
+
+const simulateDelivery = (state: InningsState, command: AdvanceInningsCommand, requestedBowlerOver: number) => {
   const venue = venueForState(state)
   const weather = weatherProfiles.find((item) => item.id === state.metadata.weatherId) ?? weatherProfiles[0]
   const pitch = pitchProfiles.find((item) => item.id === state.metadata.pitchId) ?? pitchProfiles[0]
@@ -449,7 +504,7 @@ const simulateDelivery = (state: InningsState, command: AdvanceInningsCommand) =
   const { modifiers, battingFactor, wicketPressure } = modifiersForDelivery(state, command.battingTactics, bowlingTactics)
   const phase = state.legalBalls / state.maxLegalBalls
   const overNumber = Math.floor(state.legalBalls / 6)
-  const bowlerId = command.bowlerId || defaultBowlerForOver(state, overNumber)
+  const bowlerId = resolveBowlerId(state, command.bowlerId, requestedBowlerOver)
   const bowler = state.scorecard.bowling.find((item) => item.id === bowlerId) ?? state.scorecard.bowling[0]
   const base = formatBaseWeights(state.metadata.format)
   const deathOvers = state.metadata.format !== 'Test' && phase > 0.8
@@ -578,6 +633,7 @@ export const advanceInnings = (state: InningsState, command: AdvanceInningsComma
   state.scorecard.partnerships = state.scorecard.partnerships.filter((partnership) => partnership.wicket <= state.wickets)
 
   const startLegalBalls = state.legalBalls
+  const requestedBowlerOver = Math.floor(startLegalBalls / 6)
   const targetLegalBalls =
     command.mode === 'legal-balls'
       ? startLegalBalls + Math.max(0, command.legalBalls ?? 0)
@@ -587,7 +643,7 @@ export const advanceInnings = (state: InningsState, command: AdvanceInningsComma
   const startWickets = state.wickets
 
   while (!state.completed) {
-    simulateDelivery(state, command)
+    simulateDelivery(state, command, requestedBowlerOver)
     if (command.mode === 'wicket' && state.wickets > startWickets) break
     if ((command.mode === 'legal-balls' || command.mode === 'overs') && state.legalBalls >= targetLegalBalls) break
   }
