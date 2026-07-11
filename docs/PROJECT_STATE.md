@@ -19,7 +19,7 @@ Build a downloadable, offline-first mobile web cricket management game inspired 
 - `research/condition-model-implementation-notes.md`: implementation digest derived from the research.
 - `src/lib/types.ts`: condition, scorecard, metadata, and simulation types.
 - `src/lib/data.ts`: venue matrix, weather, pitch, and format scale data.
-- `src/lib/simulation.ts`: deterministic ball-by-ball innings simulator.
+- `src/lib/simulation.ts`: deterministic stateful ball-by-ball innings simulator.
 - `src/lib/validation.ts`: fixture validation helpers.
 - `src/App.svelte`: mobile custom match UI with scorecard and ball log.
 - `src/app.css`: current visual system and responsive styling.
@@ -32,8 +32,8 @@ The first playable milestone is a custom/friendly match simulator:
 
 - Choose format: T20, ODI, Test.
 - Choose venue, pitch, weather, match time, outfield, and difficulty.
-- Adjust batting tactics.
-- Simulate deterministic ball-by-ball innings.
+- Adjust batting and bowling tactics before advancing play.
+- Simulate deterministic ball-by-ball innings progressively by over, wicket, custom interval, or full innings.
 - View condition readouts, tactic impacts, Test surface forecast, scorecard, ball log, and commentary.
 
 Later milestones add:
@@ -51,21 +51,23 @@ Later milestones add:
 - Vitest is installed with deterministic simulation and fixture validation coverage.
 - Full 29-venue condition matrix from the research notes is loaded as static fixtures.
 - Custom match controls include format, venue, weather, pitch, match time, outfield, difficulty, and batting tactics.
-- The simulator now produces ball events, batting card, bowling figures, extras, fall of wickets, partnerships, metadata, and recent commentary.
+- The simulator now produces ball events, batting card, bowling figures, extras, fall of wickets, partnerships, metadata, and recent commentary from a resumable `InningsState`.
 - Mobile app shell includes Home, Setup, Match, and Insights views with playable scenario presets.
 - Match screen supports progressive simulation controls: next over, five overs, ten overs, next wicket, custom overs, full innings, and reset.
-- Match screen includes live current-batter plans and next-over bowler selection before continuing the innings.
+- Match screen includes live current-batter plans, next-over bowler selection, bowling line, length, field, variation, pace plan, and spin plan before continuing the innings.
+- Live batting and bowling decisions now feed future delivery probabilities instead of only changing the visible scorecard.
 - Current match setup can be saved locally, loaded, exported to JSON, and imported back into the browser.
 - Static distribution groundwork is in place: relative Vite paths, web manifest, service worker, Pages workflow, and release ZIP workflow.
+- Engine tests cover deterministic full innings, one-over advancement, stop-at-next-wicket advancement, selected bowler application, tactical divergence, fixture validation, and scorecard accounting.
 
 ## Known Technical Debt
 
 - Dependency audit currently flags Vite/esbuild dev-server advisories. The automated fix jumps to a breaking Vite 8 path, so this should be handled in a dedicated Node/tooling upgrade slice.
 - Current engine uses generic placeholder XIs; real team/player rosters are a later milestone.
-- Test cricket remains a simplified one-innings simulation with five-day forecast display, not full multi-innings match state.
+- Test cricket remains a simplified one-innings simulation with five-day forecast display and active-day modifiers, not full multi-innings match state.
 - Service worker is basic app-shell/runtime caching and should be hardened before public beta.
-- Current save implementation uses localStorage for setup data only; full match history and career saves should move to IndexedDB.
-- Live batter plans and bowler choices are captured in the match UI; deeper probability impact should be added when player ratings and a resumable stateful engine replace the current deterministic reveal layer.
+- Current save implementation uses localStorage for setup data only; full match state, match history, and career saves should move to IndexedDB.
+- Live decisions are currently team-level/generic-player tactics; deeper role/rating impact should be added once real rosters and player attributes exist.
 
 ## GitHub
 

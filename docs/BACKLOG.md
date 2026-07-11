@@ -2,7 +2,7 @@
 
 ## Milestone 1: First Playable Custom Match
 
-Status: playable for a single generic innings with progressive over/wicket/custom simulation controls. Remaining work is stronger plausibility tuning, real teams/players, second innings/chases, and deeper live captaincy impact.
+Status: playable for a single generic innings with stateful over/wicket/custom simulation controls. Live batting and bowling decisions now affect future deliveries. Remaining work is stronger plausibility tuning, real teams/players, second innings/chases, and deeper player-specific captaincy impact.
 
 ### Story: Configure A Match
 
@@ -40,6 +40,19 @@ Acceptance criteria:
 - Same seed and inputs always produce the same innings.
 - Result stores engine version, ruleset version, seed, format, conditions, and tactics.
 
+### Story: Advance A Live Innings
+
+As a player, I want to continue an innings in useful chunks so that I can make captaincy decisions between phases instead of watching a whole innings at once.
+
+Acceptance criteria:
+
+- User can advance one over, five overs, ten overs, to the next wicket, custom overs, or the full innings.
+- Engine advances from current state rather than revealing a precomputed innings.
+- User can choose the next bowler before continuing.
+- User can adjust batter intent, shot selection, pace plan, spin plan, and running before continuing.
+- User can adjust bowling length, line, field, variation use, pace plan, and spin plan before continuing.
+- Future deliveries change when tactical choices change.
+
 ### Story: Read The Scorecard
 
 As a player, I want to see scorecard details so that I can understand how the innings developed.
@@ -64,7 +77,7 @@ Acceptance criteria:
 
 ## Milestone 2: Engine Confidence
 
-Status: started. Vitest is installed with deterministic RNG, fixture validation, and scorecard accounting tests.
+Status: started. Vitest is installed with deterministic RNG, stateful innings advancement, tactical divergence, fixture validation, and scorecard accounting tests.
 
 ### Story: Validate Fixtures
 
@@ -88,6 +101,10 @@ Acceptance criteria:
 - Score equals batter runs plus extras.
 - Wickets, fall of wickets, and partnerships are consistent.
 - Bulk simulations stay within plausible scoring ranges.
+- One-over advancement stops after six legal balls.
+- Next-wicket advancement stops when a wicket falls or innings completes.
+- Selected bowler is applied to the next simulated over.
+- Different live tactics can produce different future ball logs from the same starting state.
 
 ## Milestone 3: Teams And Rosters
 

@@ -4,7 +4,7 @@
 
 The match engine turns match setup, conditions, tactics, and a seed into deterministic cricket outcomes. It must produce believable scorecards and explanations while staying simple enough to run entirely in the browser.
 
-The first implementation target is a single ball-by-ball innings for custom/friendly matches. Full multi-innings match orchestration, teams, real player rosters, and career state come later.
+The current implementation target is a single stateful ball-by-ball innings for custom/friendly matches. Full multi-innings match orchestration, teams, real player rosters, and career state come later.
 
 ## Inputs
 
@@ -17,6 +17,8 @@ Required inputs:
 - `matchTime`: day, day-night, or night.
 - `outfield`: slow, normal, or fast.
 - `battingTactics`: aggression, shot selection, pace plan, spin plan, and running risk.
+- `bowlingTactics`: length, line, field, variation use, pace plan, and spin plan.
+- `advanceCommand`: continue by legal balls, overs, wicket, or full innings from the current state.
 - `seed`: stable string used for deterministic randomness.
 - `difficulty`: casual, standard, expert, or simulation.
 
@@ -39,7 +41,7 @@ Each delivery resolves from layered probabilities:
 4. Weather and match time.
 5. Outfield condition.
 6. Ball age and innings phase.
-7. Tactics.
+7. Batting and bowling tactics.
 8. Match pressure.
 9. Seeded random sample.
 
@@ -68,6 +70,23 @@ The event model should store:
 - Bowler ID.
 - Commentary text.
 - Condition tags that explain the event.
+
+## Stateful Progression
+
+The engine exposes a resumable `InningsState`:
+
+- Current score, wickets, legal balls, striker, non-striker, next batter, and completion flag.
+- Mutable scorecard with batting, bowling, extras, fall of wickets, partnerships, and ball log.
+- Deterministic RNG state carried in memory for the current innings.
+- Metadata for engine, ruleset, data, roster, seed, format, venue, pitch, weather, tactics, and conditions.
+
+The UI advances the state through commands:
+
+- `overs`: simulate N overs from the current state.
+- `wicket`: simulate until the next wicket or innings completion.
+- `innings`: simulate until all-out or over limit.
+
+Before each command, the UI can supply current batting tactics, selected bowler, and bowling tactics. These inputs affect future delivery probabilities; already-simulated balls are not rewritten.
 
 ## Innings Rules
 
@@ -118,11 +137,11 @@ This allows scorecard mechanics to be built before roster data and licensing dec
 
 ## Test Cricket Handling
 
-For the first playable slice, Test support is simplified:
+For the current playable slice, Test support is simplified:
 
 - One innings simulation, not a full match.
 - Uses a five-day forecast for display.
-- Uses the selected or active day profile to adjust batting ease, seam, swing, spin, and uneven bounce.
+- Uses the active day profile based on innings progress to adjust batting ease, seam, swing, spin, and uneven bounce.
 - Later work adds session-by-session conditions, multi-innings match state, declarations, and draw logic.
 
 ## Determinism
@@ -156,6 +175,9 @@ Unit tests:
 - Score equals batter runs plus extras.
 - Fall of wickets and partnerships are consistent.
 - Bowling figures match the ball log.
+- One-over advancement stops after six legal balls.
+- Selected bowler is reflected in the next simulated over.
+- Batting and bowling tactic changes can produce different future ball logs.
 
 Bulk tests:
 
