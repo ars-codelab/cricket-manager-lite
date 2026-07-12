@@ -222,7 +222,6 @@
   const fatigueLabel = (fatigue: number) => (fatigue >= 82 ? 'Spent' : fatigue >= 58 ? 'Tiring' : fatigue >= 32 ? 'Warm' : 'Fresh')
   const defaultSpellOvers = (activeFormat: MatchFormat) => (activeFormat === 'T20' ? 2 : activeFormat === 'ODI' ? 4 : 6)
   const sideLabel = (side: UserSide) => (side === 'teamA' ? 'Team A' : 'Team B')
-  const isMatchActive = () => view === 'match'
 
   const buildBowlerUsage = (bowlers: BowlerFigures[], activeFormat: MatchFormat) => {
     const maxBalls = maxBallsPerBowler(activeFormat)
@@ -590,7 +589,7 @@
 </script>
 
 <main class="app-shell">
-  {#if !isMatchActive()}
+  {#if view !== 'match'}
     <section class="hero-panel">
       <div>
         <p class="eyebrow">Cricket Manager Lite</p>
@@ -607,7 +606,7 @@
     <nav class="bottom-nav" aria-label="Primary sections">
       <button class:active={view === 'home'} type="button" on:click={() => (view = 'home')}>Home</button>
       <button class:active={view === 'setup'} type="button" on:click={() => (view = 'setup')}>Setup</button>
-      <button class:active={view === 'match'} type="button" on:click={() => (view = 'match')}>Match</button>
+      <button type="button" on:click={() => (view = 'match')}>Match</button>
       <button class:active={view === 'insights'} type="button" on:click={() => (view = 'insights')}>Insights</button>
     </nav>
   {/if}
