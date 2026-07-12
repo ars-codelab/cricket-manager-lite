@@ -145,8 +145,11 @@
   $: isComplete = inningsState.completed
   $: currentStriker = isComplete ? null : result.scorecard.batting[inningsState.strikerIndex]
   $: currentPartner = isComplete ? null : result.scorecard.batting[inningsState.nonStrikerIndex]
+  $: bowlerUsage = buildBowlerUsage(result.scorecard.bowling, inningsState.metadata.format)
+  $: if (!isComplete && bowlerUsage[nextBowlerId]?.exhausted) {
+    nextBowlerId = defaultBowlerForOver(inningsState)
+  }
   $: currentBowler = result.scorecard.bowling.find((bowler) => bowler.id === nextBowlerId) ?? result.scorecard.bowling[0]
-  $: bowlerUsage = buildBowlerUsage(result.scorecard.bowling)
   $: currentBowlerUsage = bowlerUsage[currentBowler?.id ?? '']
   $: currentOverNumber = Math.floor(inningsState.legalBalls / 6)
   $: inningsLabel = `${ordinal(inningsState.inningsNumber)} innings`
@@ -178,8 +181,8 @@
   const deliveryLabel = (runs: number) => (runs === 0 ? 'dot' : `${runs}`)
   const fatigueLabel = (fatigue: number) => (fatigue >= 82 ? 'Spent' : fatigue >= 58 ? 'Tiring' : fatigue >= 32 ? 'Warm' : 'Fresh')
 
-  const buildBowlerUsage = (bowlers: BowlerFigures[]) => {
-    const maxBalls = maxBallsPerBowler(format)
+  const buildBowlerUsage = (bowlers: BowlerFigures[], activeFormat: MatchFormat) => {
+    const maxBalls = maxBallsPerBowler(activeFormat)
 
     return Object.fromEntries(
       bowlers.map((bowler) => {
