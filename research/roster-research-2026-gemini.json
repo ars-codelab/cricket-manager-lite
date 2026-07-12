@@ -1,0 +1,535 @@
+{
+ "target_season": "2026",
+ "format": "T20_Simulation_Roster",
+ "teams": [
+   {
+     "id": "IND_INT",
+     "team_name": "India T20",
+     "abbreviation": "IND",
+     "type": "International",
+     "roster": [
+       {
+         "id": "ind_01",
+         "name": "S. Iyar",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting[span_117](start_span)[span_117](end_span)_rating": 86,
+         "bowling_rating": 15,
+         "natural_aggression": 3,
+         "traits": ["Captain", "Spin_Specialist", "Anchor"]
+       },
+       {
+         "id": "ind_02",
+         "name": "V. Suryavanshi",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 89,
+         "bowling_rating": 10,
+         "natural_aggression": 5,
+         "traits": ["Prodigy", "Powerplay_Exploder", "Slogger"]
+       },
+       {
+         "id": "ind_03",
+         "name": "A. Sharma",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 84,
+         "bowling_rating": 68,
+         "natural_aggression": 5,
+         "traits": ["Spin_Twin", "Enforcer", "Six_Hitter"]
+       },
+       {
+         "id": "ind_04",
+         "name": "T. Varma",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 85,
+         "bowling_rating": 45,
+         "natural_aggression": 3,
+         "traits": ["Vice_Captain", "Middle_Overs_Stabilizer", "Gap_Finder"]
+       },
+       {
+         "id": "ind_05",
+         "name": "S. Samson",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 83,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Keeper_Expert", "Pace_Hitter", "Explosive"]
+       },
+       {
+         "id": "ind_06",
+         "name": "A. Patel",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 78,
+         "bowling_rating": 88,
+         "natural_aggression": 3,
+         "traits": ["Finisher_Allrounder", "Economy_Specialist", "Target_Worker"]
+       },
+       {
+         "id": "ind_07",
+         "name": "J. Bhumra",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 30,
+         "bowling_rating": 99,
+         "natural_aggression": 1,
+         "traits": ["Generational_Star", "Yorker_Specialist", "Death_Bowler_King"]
+       }
+     ]
+   },
+   {
+     "id": "AUS_INT",
+     "team_name": "Australia T20",
+     "abbreviation": "AUS",
+     "type": "International",
+     "roster": [
+       {
+         "id": "aus_01",
+         "name": "M. Marsh",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 85,
+         "bowling_rating": 72,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Pace_Enforcer", "Power_Batter"]
+       },
+       {
+         "id": "aus_02",
+         "name": "T. Hed",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 90,
+         "bowling_rating": 35,
+         "natural_aggression": 5,
+         "traits": ["Powerplay_Destroyer", "Fearless_Opener", "Spin_Targeter"]
+       },
+       {
+         "id": "aus_03",
+         "name": "J. Inglis",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 84,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Keeper_Expert", "Sweep_Specialist", "360_Degrees"]
+       },
+       {
+         "id": "aus_04",
+         "name": "G. Maxwell",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 86,
+         "bowling_rating": 70,
+         "natural_aggression": 5,
+         "traits": ["Match_Winner", "Switch_Hit_Specialist", "Spin_Twin"]
+       },
+       {
+         "id": "aus_05",
+         "name": "M. Stoinis",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 81,
+         "bowling_rating": 74,
+         "natural_aggression": 4,
+         "traits": ["Finisher", "Death_Bowler", "Boundary_Clearer"]
+       },
+       {
+         "id": "aus_06",
+         "name": "A. Zampa",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm leg break",
+         "batting_rating": 15,
+         "bowling_rating": 92,
+         "natural_aggression": 1,
+         "traits": ["Spin_King", "Middle_Overs_Choker", "Googly_Specialist"]
+       }
+     ]
+   },
+   {
+     "id": "PAK_INT",
+     "team_name": "Pakistan T20",
+     "abbreviation": "PAK",
+     "type": "International",
+     "roster": [
+       {
+         "id": "pak_01",
+         "name": "S. Agha",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 80,
+         "bowling_rating": 72,
+         "natural_aggression": 3,
+         "traits": ["Captain", "Spin_Specialist", "Anchor"]
+       },
+       {
+         "id": "pak_02",
+         "name": "B. Azam",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 88,
+         "bowling_rating": 25,
+         "natural_aggression": 2,
+         "traits": ["Anchor_Supreme", "Pace_Accumulator", "Classic_Styles"]
+       },
+       {
+         "id": "pak_03",
+         "name": "F. Zaman",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 83,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Enforcer", "Powerplay_Targeter", "Slogger"]
+       },
+       {
+         "id": "pak_04",
+         "name": "S. Khan",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm leg break",
+         "batting_rating": 78,
+         "bowling_rating": 82,
+         "natural_aggression": 4,
+         "traits": ["Spin_Allrounder", "Wrist_Spin", "Useful_Finisher"]
+       },
+       {
+         "id": "pak_05",
+         "name": "S. Afridi",
+         "role": "Bowler",
+         "batting_style": "Left-handed",
+         "bowling_style": "Left-arm fast",
+         "batting_rating": 35,
+         "bowling_rating": 90,
+         "natural_aggression": 4,
+         "traits": ["Inswing_Threat", "New_Ball_Specialist", "Pinch_Hitter"]
+       },
+       {
+         "id": "pak_06",
+         "name": "N. Shah",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 25,
+         "bowling_rating": 88,
+         "natural_aggression": 2,
+         "traits": ["Express_Pace", "Seam_Movement", "Death_Executor"]
+       }
+     ]
+   },
+   {
+     "id": "ENG_INT",
+     "team_name": "England T20",
+     "abbreviation": "ENG",
+     "type": "International",
+     "roster": [
+       {
+         "id": "eng_01",
+         "name": "H. Brooke",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium",
+         "batting_rating": 87,
+         "bowling_rating": 20,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Spin_Destroyer", "Middle_Overs_Smasher"]
+       },
+       {
+         "id": "eng_02",
+         "name": "P. Salt",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 85,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Powerplay_Exploder", "Keeper_Expert", "Slogger"]
+       },
+       {
+         "id": "eng_03",
+         "name": "J. Butler",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 88,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Keeper_Fallback", "Match_Winner", "360_Degrees"]
+       },
+       {
+         "id": "eng_04",
+         "name": "S. Curran",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Left-arm medium fast",
+         "batting_rating": 77,
+         "bowling_rating": 82,
+         "natural_aggression": 4,
+         "traits": ["Death_Specialist", "Swing_Opener", "Utility_Batter"]
+       },
+       {
+         "id": "eng_05",
+         "name": "A. Rashid",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm leg break",
+         "batting_rating": 18,
+         "bowling_rating": 89,
+         "natural_aggression": 1,
+         "traits": ["Googly_Specialist", "Middle_Overs_Choker", "Experienced"]
+       },
+       {
+         "id": "eng_06",
+         "name": "J. Archer",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 30,
+         "bowling_rating": 91,
+         "natural_aggression": 3,
+         "traits": ["Express_Pace", "Death_Enforcer", "Yorker_Specialist"]
+       }
+     ]
+   },
+   {
+     "id": "CSK_FRAN",
+     "team_name": "Chennai Franchise",
+     "abbreviation": "CSK",
+     "type": "Franchise",
+     "roster": [
+       {
+         "id": "csk_01",
+         "name": "R. Gaikwad",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 88,
+         "bowling_rating": 0,
+         "natural_aggression": 3,
+         "traits": ["Captain", "Anchor_Supreme", "Pace_Hitter"]
+       },
+       {
+         "id": "csk_02",
+         "name": "D. Conway",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "None",
+         "batting_rating": 86,
+         "bowling_rating": 0,
+         "natural_aggression": 3,
+         "traits": ["Spin_Specialist", "Reliable_Opener", "Tactician"]
+       },
+       {
+         "id": "csk_03",
+         "name": "S. Dube",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm medium",
+         "batting_rating": 85,
+         "bowling_rating": 50,
+         "natural_aggression": 5,
+         "traits": ["Spin_Monster", "Six_Hitter_Long", "Middle_Overs_Smasher"]
+       },
+       {
+         "id": "csk_04",
+         "name": "M.S. Dhoni",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 78,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Legend_Mentor", "Clutch_Finisher", "Fastest_Keeper_Stump"]
+       },
+       {
+         "id": "csk_05",
+         "name": "R. Jadeja",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 80,
+         "bowling_rating": 87,
+         "natural_aggression": 3,
+         "traits": ["Three_Dimensional", "Quick_Over_Bowler", "Infield_Gun_Fielder"]
+       },
+       {
+         "id": "csk_06",
+         "name": "M. Pathirana",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 10,
+         "bowling_rating": 91,
+         "natural_aggression": 1,
+         "traits": ["Slingy_Action", "Yorker_Specialist", "Death_Enforcer"]
+       }
+     ]
+   },
+   {
+     "id": "MI_FRAN",
+     "team_name": "Mumbai Franchise",
+     "abbreviation": "MI",
+     "type": "Franchise",
+     "roster": [
+       {
+         "id": "mi_01",
+         "name": "H. Pandia",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 85,
+         "bowling_rating": 81,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Clutch_Player", "Finisher"]
+       },
+       {
+         "id": "mi_02",
+         "name": "R. Sharma",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 89,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Pull_Shot_Specialist", "Powerplay_Exploder", "Anchor"]
+       },
+       {
+         "id": "mi_03",
+         "name": "S. Yadev",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 92,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["360_Degrees", "Wrist_Spinner_Destroyer", "Aggressive_Force"]
+       },
+       {
+         "id": "mi_04",
+         "name": "T. Varma",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 84,
+         "bowling_rating": 45,
+         "natural_aggression": 3,
+         "traits": ["Middle_Overs_Stabilizer", "Gap_Finder", "Reliable"]
+       },
+       {
+         "id": "mi_05",
+         "name": "J. Bhumra",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 30,
+         "bowling_rating": 99,
+         "natural_aggression": 1,
+         "traits": ["Generational_Star", "Yorker_Specialist", "Death_Bowler_King"]
+       },
+       {
+         "id": "mi_06",
+         "name": "T. Boult",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Left-arm fast medium",
+         "batting_rating": 20,
+         "bowling_rating": 89,
+         "natural_aggression": 2,
+         "traits": ["New_Ball_Specialist", "Inswing_Threat", "Experienced"]
+       }
+     ]
+   },
+   {
+     "id": "RCB_FRAN",
+     "team_name": "Bangalore Franchise",
+     "abbreviation": "RCB",
+     "type": "Franchise",
+     "roster": [
+       {
+         "id": "rcb_01",
+         "name": "R. Pettidar",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 82,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Aggressive", "Middle_Overs_Smasher"]
+       },
+       {
+         "id": "rcb_02",
+         "name": "V. Kholi",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium",
+         "batting_rating": 91,
+         "bowling_rating": 30,
+         "natural_aggression": 3,
+         "traits": ["Anchor_Supreme", "Chasing_King", "Cover_Drive_Specialist"]
+       },
+       {
+         "id": "rcb_03",
+         "name": "P. Salt",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 85,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Keeper_Expert", "Powerplay_Smasher", "Spin_Twin"]
+       },
+       {
+         "id": "rcb_04",
+         "name": "L. Livingstone",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 83,
+         "bowling_rating": 65,
+         "natural_aggression": 5,
+         "traits": ["Six_Hitter_Long", "Pinch_Hitter", "Dual_Spin_Options"]
+       },
+       {
+         "id": "rcb_05",
+         "name": "B. Kumar",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 45,
+         "bowling_rating": 84,
+         "natural_aggression": 2,
+         "traits": ["Swing_Opener", "Accuracy_Machine", "Economy_Enforcer"]
+       },
+       {
+         "id": "rcb_06",
+         "name": "J. Hazlewood",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast medium",
+         "batting_rating": 12,
+         "bowling_rating": 90,
+         "natural_aggression": 1,
+         "traits": ["New_Ball_Enforcer", "Economy_Specialist", "Bounce_Extractor"]
+       }
+     ]
+   }
+ ]
+}

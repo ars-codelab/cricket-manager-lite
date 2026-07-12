@@ -1,0 +1,676 @@
+﻿Architectural and Dataset Specifications for Client-Side Cricket Simulation Systems
+Structural Design of a Browser-Only Management Engine
+Developing a high-performance, browser-only sports simulation engine demands a fundamental departure from traditional server-dependent web architectures. Rather than relying on cloud-based computation for resolving match states, a client-side architecture moves the entire probabilistic engine, database query layer, and state management directly into the browser sandbox. This design pattern eliminates server latency, mitigates hosting costs, and guarantees complete offline playability. However, the local execution environment introduces significant technical constraints, particularly regarding resource management, execution budgets, thread safety, and strict regulatory compliance regarding intellectual property.
+To maintain an immersive experience that rivals commercial management titles like the Cricket Captain series, the simulation must balance mathematical complexity with raw performance on low-end hardware. The technical architecture must handle high-frequency data structures—such as dynamic match momentum tracking, real-time ball-by-ball commentary generation, and persistent career statistics—without causing user interface stuttering or blocking the browser's main render loop.
+Local Storage Optimization and Web Worker Thread Safety
+For a deep simulation tracking thousands of relational records (matches, scorecards, partnerships, player stats caches), a standard asynchronous IndexedDB driver introduces massive serialization bottlenecks. The standard solution for browser-based database persistence relies on cross-compiling the C-based SQLite database to WebAssembly (WASM) and backing it with the Origin Private File System (OPFS).
+Comparative Storage Architecture
+The storage hierarchy must be segmented logically to leverage the unique advantages of each storage API available in modern web browsers.
+Storage Engine
+	Data Structure
+	Storage Quota
+	Access Type
+	Primary Use Case
+	Performance Bottlenecks
+	LocalStorage
+	Key-Value Plaintext
+	~5–10 MB
+	Synchronous (Blocking)
+	Global configuration settings, active UI theme, and API keys
+	Blocks the main UI thread during intensive read/write operations
+	IndexedDB
+	Transactional Object Store
+	Up to 50% of free disk space
+	Asynchronous
+	Historical career summaries, player fixture histories, and static fallback data
+	High transaction overhead; slow for complex relation-heavy queries
+	OPFS (backed by Worker)
+	Virtual File System / Binary Blobs
+	Up to 50% of free disk space
+	Synchronous in Workers; Asynchronous in Window
+	SQLite WASM database file storage for relation-heavy structural queries
+	Requires COOP and COEP HTTP security headers to enable SharedArrayBuffer
+	By operating within a dedicated Web Worker, the SQLite VFS can gain exclusive, synchronous access to raw bytes using the low-level createSyncAccessHandle API. This setup bypasses the main thread entirely, enabling execution of complex SQL transactions—such as draft algorithms, transfer window updates, and tournament standings evaluations—3 to 4 times faster than native IndexedDB.
+The browser E2E test suites for database engines indicate that the Web Assembly layer must wrap the synchronous file descriptor to enable transactions without blocking the user interface. In order to handle platform variance, a three-tier local storage fallback strategy is recommended:
+Tier 1: OPFS Worker (Synchronous SQLite WASM)
+        │  (Fallback if OPFS is unsupported, e.g., Legacy Environments)
+        ▼
+Tier 2: IndexedDB (Asynchronous SQLite VFS Layer)
+        │  (Fallback if IndexedDB is restricted, e.g., Private Browsing)
+        ▼
+Tier 3: In-Memory / LocalStorage Plaintext Cache
+
+In modern mobile browser engines across iOS and Android (specifically Safari 15.2+, Chrome Android 109+, and Firefox Android 111+), the Origin Private File System is fully implemented. However, because mobile operating systems aggressively restrict local disk-picker APIs, utilizing the OPFS sandbox is the only viable method to persist multi-gigabyte simulation files locally without triggering security alerts or user permission prompts.
+Progressive Web App (PWA) Offline-First Caching Strategy
+To ensure seamless offline launch capabilities, a Service Worker must implement declarative caching policies using Workbox. The caching layer maps requests to strategies based on the longevity and mutability of the assets:
+* Cache-First Strategy: Applied to static immutable assets (the compiled WebAssembly binary, CSS layouts, JS runtime engines, and local font files). These assets are resolved in 5 to 20 milliseconds directly from the cache storage, bypassing flaky network conditions.
+* Stale-While-Revalidate Strategy: Used for non-critical dynamic UI elements and athlete portrait assets. The engine immediately renders the locally cached profile assets for instant feedback, while silently fetching newer revisions in the background.
+* Network-First with Cache Fallback: Reserved for core data updates (such as downloading live external league expansions or custom user-shared database files). The client prioritizes live networks, but falls back to the locally serialized OPFS schema when completely offline to ensure uninterrupted gameplay.
+To prevent session disruption during service worker updates, the activation loop must invoke workbox.core.skipWaiting() and workbox.core.clientsClaim() to force immediate control over active browser tabs upon update confirmation.
+Intellectual Property and Algorithmic Pseudonymization Schemes
+A primary risk in sports management games is the unlicensed commercial use of real-world athlete names, likenesses, and proprietary franchise trademarks. Within the sports video game industry, legal precedents have historically forced developers to adopt creative structural mitigations to sidestep costly licensing litigation.
+The industry standard for mitigating legal risks without breaking user immersion centers on a two-pronged dataset pseudonymization strategy, as observed in the 2025–2026 iterations of major management titles:
+1. Algorithmic Pseudonymization: Real-world names are systematically altered using phonetic swaps, minor vowel permutations, or inverted initials (e.g., transforming "Virat Kohli" into "V. Kholi" and "Jasprit Bumrah" into "J. Bhumra"). This guarantees that while the underlying statistical attributes reflect authentic historical player data, the database does not contain protected, trademarked player identifiers in its raw structure.
+2. In-Memory Client-Side Re-hydration: The game client exposes a high-fidelity, local-only editing suite. By utilizing a client-side "Player Editor" or allowing the import of user-authored plaintext CSV/JSON mapping files, users can instantly overwrite the pseudonymized database with correct real-world names. Because this re-hydration occurs strictly inside the user's localized browser storage environment (such as localStorage or IndexedDB) and is never transmitted or hosted on a public server, the application remains shielded from trademark and publicity-right infringement claims.
+Mathematical Modeling of the Probabilistic Delivery Engine
+The core of a cricket management simulator is its ball-by-ball resolution pipeline. Instead of simplistic randomized roll-outs, a realistic match engine structures the game as a sequence of discrete, state-dependent probabilistic trials.
+Mathematical Framework of State Transitions
+The progression of a cricket match naturally maps to a finite Markov Decision Process (MDP) or an explicit first-order Markov Chain. At any legal delivery t, the state vector S_t is defined as:
+S_t = (R_t, B_t, W_t, I_{on}, I_{off}, J_{bowl}, \Phi)
+Where R_t is runs scored, B_t is legal balls remaining in the innings, W_t is wickets lost, I_{on} and I_{off} represent the indices of the on-strike and off-strike batsmen, J_{bowl} represents the active bowler index, and \Phi \in \{\text{Powerplay}, \text{Middle}, \text{Death}\} defines the active innings phase.
+On each delivery, the outcome o is sampled from a discrete probability distribution over the outcome space \Omega = \{W, 0, 1, 2, 3, 4, 6\}:
+P(o \in \Omega \mid S_t) = f(\text{Skill}(I_{on}), \text{Skill}(J_{bowl}), \text{Pitch}, \text{Tactics}, \text{Momentum})
+The Sequential Modification Pipeline
+To compute P(o \mid S_t) dynamically, the engine executes a multi-layered modification pipeline:
+Step 1: Baseline Matrix
+   Compute the intersection of Batsman Skill (Batting Rating, Traits)
+   and Bowler Skill (Bowling Rating, Pace/Spin modifiers)[span_110](start_span)[span_110](end_span).
+
+Step 2: Pitch Scaling
+   Apply multipliers based on selected Pitch Type (Green, Dry, Balanced, Flat)
+   and current Pitch Deterioration / Weather[span_118](start_span)[span_118](end_span)[span_119](start_span)[span_119](end_span)[span_120](start_span)[span_120](end_span)[span_121](start_span)[span_121](end_span).
+
+Step 3: Tactical Overlays
+   Modify probabilities based on Batter/Bowler Aggression levels (1-5)
+   and active Field Settings (Defensive, Balanced, Attacking)[span_122](start_span)[span_122](end_span)[span_123](start_span)[span_123](end_span)[span_124](start_span)[span_124](end_span).
+
+Step 4: Situational Pressures
+   Apply modifiers for wickets lost, required run rate pressure,
+   and match phase transitions[span_125](start_span)[span_125](end_span)[span_126](start_span)[span_126](end_span)[span_127](start_span)[span_127](end_span).
+
+Step 5: Momentum Decay Weighting
+   Compute final outcome probabilities, clamping the cumulative modifiers.
+
+Implementing Dynamic Momentum Decay
+To simulate real-world match flows—such as batting collapses or hot bowling spells—the engine implements a rolling momentum tracking algorithm. Momentum M_t is computed over a rolling window of the last N = 18 deliveries with an exponential decay factor \lambda = 0.88:
+M_t = \sum_{k=0}^{N-1} \lambda^k \cdot \Delta(t-k)
+Where \Delta([span_112](start_span)[span_112](end_span)t-k) represents the scoring deviation relative to the expected par score curve for that delivery on the given pitch type. To prevent runaway positive feedback loops where a team becomes mathematically impossible to dismiss, the cumulative outcome probability modifiers are strictly clamped:
+\text{Modifier}_{\text{final}} = \min\left(\max\left(\text{Modifier}[span_114](start_span)[span_114](end_span)_{\text{calculated}}, 0.35\right), 3.00\right)
+Duckworth-Lewis-Stern (DLS) Resource Calculations
+For matches interrupted by rain or scheduling limits, the simulator must calculate revised targets using the standard Duckworth-Lewis-Stern mathematical framework. The remaining run-production resource R(u, w) of a team with u overs remaining and w wickets lost is modeled using an exponential decay relationship:
+R(u, w) = Z_0(w) \cdot \left(1 - e^{-\frac{L \cdot u}{Z_0(w)}}\right)
+Where Z_0(w) represents the asymptotic average run total expected from an unlimited-overs innings with w wickets lost, and L represents the exponential constant governing resource depletion. Under modern Stern-edition parameters, the resource table is scaled such that a full 20-over, 10-wicket innings corresponds to exactly 100\% resources.
+In a dynamic in-play scenario, if Team 1 utilizes RT_1 percent of its resources to score X runs, and Team 2 is restricted to RT_2 resources, the revised par score target Y is defined as:
+Y = \left\lfloor X \cdot \left(\frac{RT_2}{RT_1}\right)\right\rfloor + 1
+For high-accuracy simulation environments, these static mathematical curves can be dynamically adjusted using a contextual feedback loop. By taking into account the Batting Quality Index (BQI), Bowling Threat Index (BTI), and pitch moisture levels, the engine can dynamically scale the decay constant L, reflecting real-time shifts in match conditions.
+The Batting Quality Index (BQI) is computed as a weighted combination of normalized metrics:
+BQI = w_1 \cdot \text{Avg}_{\text{norm}} + w_2 \cdot \text{SR}_{\text{norm}} + w_3 \cdot \text{Rank}_{\text{norm}}
+Empirical Analysis of Venue and Pitch Multipliers
+To ensure authentic gameplay, pitch properties must map to real-world venue data compiled through the 2026 season. A flat, fast track at Bengaluru's M. Chinnaswamy Stadium behaves differently from a dry, spinning surface at Chennai's MA Chidambaram Stadium.
+Venue Simulation Matrix
+The simulation engine utilizes a multi-dimensional matrix to adjust baseline probabilities based on the selected venue.
+Venue Name
+	Primary Pitch Soil Type
+	Average T20 1st Innings Score
+	Toss Impact (Batting 1st Win %)
+	Key Simulation Modifiers
+	M. Chinnaswamy Stadium, Bengaluru
+	Flat Red-Soil Base
+	~166–185 runs
+	36%–47% (Chasing heavily favored)
+	+25% boundary multiplier; high altitude and short 60m boundaries. Spinners struggle unless utilizing drift variations.
+	MA Chidambaram Stadium, Chennai
+	Dry, Cracking Red-Clay
+	~163 runs
+	56% (Defending highly favored)
+	+30% spinner grip from the 8th over onwards; low bounce. Powerplay scoring is critical before deterioration kicks in.
+	Wankhede Stadium, Mumbai
+	Firm Red-Soil with Grass
+	~170–180 runs
+	48%–52% (Neutral toss bias)
+	+15% pace carry; early swing under lights. Extreme dew multiplier in second innings enhances batting speed.
+	R. Premadasa Stadium, Colombo
+	Slow, High-Wear Turf
+	~143–152 runs
+	55% (Defending favored in ODIs)
+	+20% wrist-spin turn; pacers must rely on slow cutters and variations. Low-scoring grind with high dot-ball percentages.
+	The Gabba, Brisbane
+	Elastic, Hard Turf
+	~166–169 runs
+	52%–64% (Batting first favored)
+	+25% bounce height; express pace is highly effective but expensive. Spinners experience very low natural grip.
+	Melbourne Cricket Ground (MCG)
+	Drop-in, Large Outfield
+	~144–150 runs
+	33%–49% (Chasing favored under lights)
+	-15% boundary potential; +25% run-rate penalty on mistimed shots. Rewards high running speed and stamina attributes.
+	Start Roster Dataset
+The starting roster dataset below is compiled and optimized to fit cleanly within client-side memory constraints. It features top international and franchise teams as of 2026, using compliant pseudonymization to bypass licensing restrictions while maintaining realistic player profiles, skill distributions, and specialized game-engine traits.
+{
+ "target_season": "2026",
+ "format": "T20_Simulation_Roster",
+ "teams": [
+   {
+     "id": "IND_INT",
+     "team_name": "India T20",
+     "abbreviation": "IND",
+     "type": "International",
+     "roster": [
+       {
+         "id": "ind_01",
+         "name": "S. Iyar",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting[span_117](start_span)[span_117](end_span)_rating": 86,
+         "bowling_rating": 15,
+         "natural_aggression": 3,
+         "traits": ["Captain", "Spin_Specialist", "Anchor"]
+       },
+       {
+         "id": "ind_02",
+         "name": "V. Suryavanshi",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 89,
+         "bowling_rating": 10,
+         "natural_aggression": 5,
+         "traits": ["Prodigy", "Powerplay_Exploder", "Slogger"]
+       },
+       {
+         "id": "ind_03",
+         "name": "A. Sharma",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 84,
+         "bowling_rating": 68,
+         "natural_aggression": 5,
+         "traits": ["Spin_Twin", "Enforcer", "Six_Hitter"]
+       },
+       {
+         "id": "ind_04",
+         "name": "T. Varma",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 85,
+         "bowling_rating": 45,
+         "natural_aggression": 3,
+         "traits": ["Vice_Captain", "Middle_Overs_Stabilizer", "Gap_Finder"]
+       },
+       {
+         "id": "ind_05",
+         "name": "S. Samson",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 83,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Keeper_Expert", "Pace_Hitter", "Explosive"]
+       },
+       {
+         "id": "ind_06",
+         "name": "A. Patel",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 78,
+         "bowling_rating": 88,
+         "natural_aggression": 3,
+         "traits": ["Finisher_Allrounder", "Economy_Specialist", "Target_Worker"]
+       },
+       {
+         "id": "ind_07",
+         "name": "J. Bhumra",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 30,
+         "bowling_rating": 99,
+         "natural_aggression": 1,
+         "traits": ["Generational_Star", "Yorker_Specialist", "Death_Bowler_King"]
+       }
+     ]
+   },
+   {
+     "id": "AUS_INT",
+     "team_name": "Australia T20",
+     "abbreviation": "AUS",
+     "type": "International",
+     "roster": [
+       {
+         "id": "aus_01",
+         "name": "M. Marsh",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 85,
+         "bowling_rating": 72,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Pace_Enforcer", "Power_Batter"]
+       },
+       {
+         "id": "aus_02",
+         "name": "T. Hed",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 90,
+         "bowling_rating": 35,
+         "natural_aggression": 5,
+         "traits": ["Powerplay_Destroyer", "Fearless_Opener", "Spin_Targeter"]
+       },
+       {
+         "id": "aus_03",
+         "name": "J. Inglis",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 84,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Keeper_Expert", "Sweep_Specialist", "360_Degrees"]
+       },
+       {
+         "id": "aus_04",
+         "name": "G. Maxwell",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 86,
+         "bowling_rating": 70,
+         "natural_aggression": 5,
+         "traits": ["Match_Winner", "Switch_Hit_Specialist", "Spin_Twin"]
+       },
+       {
+         "id": "aus_05",
+         "name": "M. Stoinis",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 81,
+         "bowling_rating": 74,
+         "natural_aggression": 4,
+         "traits": ["Finisher", "Death_Bowler", "Boundary_Clearer"]
+       },
+       {
+         "id": "aus_06",
+         "name": "A. Zampa",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm leg break",
+         "batting_rating": 15,
+         "bowling_rating": 92,
+         "natural_aggression": 1,
+         "traits": ["Spin_King", "Middle_Overs_Choker", "Googly_Specialist"]
+       }
+     ]
+   },
+   {
+     "id": "PAK_INT",
+     "team_name": "Pakistan T20",
+     "abbreviation": "PAK",
+     "type": "International",
+     "roster": [
+       {
+         "id": "pak_01",
+         "name": "S. Agha",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 80,
+         "bowling_rating": 72,
+         "natural_aggression": 3,
+         "traits": ["Captain", "Spin_Specialist", "Anchor"]
+       },
+       {
+         "id": "pak_02",
+         "name": "B. Azam",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 88,
+         "bowling_rating": 25,
+         "natural_aggression": 2,
+         "traits": ["Anchor_Supreme", "Pace_Accumulator", "Classic_Styles"]
+       },
+       {
+         "id": "pak_03",
+         "name": "F. Zaman",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 83,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Enforcer", "Powerplay_Targeter", "Slogger"]
+       },
+       {
+         "id": "pak_04",
+         "name": "S. Khan",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm leg break",
+         "batting_rating": 78,
+         "bowling_rating": 82,
+         "natural_aggression": 4,
+         "traits": ["Spin_Allrounder", "Wrist_Spin", "Useful_Finisher"]
+       },
+       {
+         "id": "pak_05",
+         "name": "S. Afridi",
+         "role": "Bowler",
+         "batting_style": "Left-handed",
+         "bowling_style": "Left-arm fast",
+         "batting_rating": 35,
+         "bowling_rating": 90,
+         "natural_aggression": 4,
+         "traits": ["Inswing_Threat", "New_Ball_Specialist", "Pinch_Hitter"]
+       },
+       {
+         "id": "pak_06",
+         "name": "N. Shah",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 25,
+         "bowling_rating": 88,
+         "natural_aggression": 2,
+         "traits": ["Express_Pace", "Seam_Movement", "Death_Executor"]
+       }
+     ]
+   },
+   {
+     "id": "ENG_INT",
+     "team_name": "England T20",
+     "abbreviation": "ENG",
+     "type": "International",
+     "roster": [
+       {
+         "id": "eng_01",
+         "name": "H. Brooke",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium",
+         "batting_rating": 87,
+         "bowling_rating": 20,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Spin_Destroyer", "Middle_Overs_Smasher"]
+       },
+       {
+         "id": "eng_02",
+         "name": "P. Salt",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 85,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Powerplay_Exploder", "Keeper_Expert", "Slogger"]
+       },
+       {
+         "id": "eng_03",
+         "name": "J. Butler",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 88,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Keeper_Fallback", "Match_Winner", "360_Degrees"]
+       },
+       {
+         "id": "eng_04",
+         "name": "S. Curran",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Left-arm medium fast",
+         "batting_rating": 77,
+         "bowling_rating": 82,
+         "natural_aggression": 4,
+         "traits": ["Death_Specialist", "Swing_Opener", "Utility_Batter"]
+       },
+       {
+         "id": "eng_05",
+         "name": "A. Rashid",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm leg break",
+         "batting_rating": 18,
+         "bowling_rating": 89,
+         "natural_aggression": 1,
+         "traits": ["Googly_Specialist", "Middle_Overs_Choker", "Experienced"]
+       },
+       {
+         "id": "eng_06",
+         "name": "J. Archer",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 30,
+         "bowling_rating": 91,
+         "natural_aggression": 3,
+         "traits": ["Express_Pace", "Death_Enforcer", "Yorker_Specialist"]
+       }
+     ]
+   },
+   {
+     "id": "CSK_FRAN",
+     "team_name": "Chennai Franchise",
+     "abbreviation": "CSK",
+     "type": "Franchise",
+     "roster": [
+       {
+         "id": "csk_01",
+         "name": "R. Gaikwad",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 88,
+         "bowling_rating": 0,
+         "natural_aggression": 3,
+         "traits": ["Captain", "Anchor_Supreme", "Pace_Hitter"]
+       },
+       {
+         "id": "csk_02",
+         "name": "D. Conway",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "None",
+         "batting_rating": 86,
+         "bowling_rating": 0,
+         "natural_aggression": 3,
+         "traits": ["Spin_Specialist", "Reliable_Opener", "Tactician"]
+       },
+       {
+         "id": "csk_03",
+         "name": "S. Dube",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm medium",
+         "batting_rating": 85,
+         "bowling_rating": 50,
+         "natural_aggression": 5,
+         "traits": ["Spin_Monster", "Six_Hitter_Long", "Middle_Overs_Smasher"]
+       },
+       {
+         "id": "csk_04",
+         "name": "M.S. Dhoni",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 78,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Legend_Mentor", "Clutch_Finisher", "Fastest_Keeper_Stump"]
+       },
+       {
+         "id": "csk_05",
+         "name": "R. Jadeja",
+         "role": "All-rounder",
+         "batting_style": "Left-handed",
+         "bowling_style": "Slow left-arm orthodox",
+         "batting_rating": 80,
+         "bowling_rating": 87,
+         "natural_aggression": 3,
+         "traits": ["Three_Dimensional", "Quick_Over_Bowler", "Infield_Gun_Fielder"]
+       },
+       {
+         "id": "csk_06",
+         "name": "M. Pathirana",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 10,
+         "bowling_rating": 91,
+         "natural_aggression": 1,
+         "traits": ["Slingy_Action", "Yorker_Specialist", "Death_Enforcer"]
+       }
+     ]
+   },
+   {
+     "id": "MI_FRAN",
+     "team_name": "Mumbai Franchise",
+     "abbreviation": "MI",
+     "type": "Franchise",
+     "roster": [
+       {
+         "id": "mi_01",
+         "name": "H. Pandia",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 85,
+         "bowling_rating": 81,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Clutch_Player", "Finisher"]
+       },
+       {
+         "id": "mi_02",
+         "name": "R. Sharma",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 89,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Pull_Shot_Specialist", "Powerplay_Exploder", "Anchor"]
+       },
+       {
+         "id": "mi_03",
+         "name": "S. Yadev",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 92,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["360_Degrees", "Wrist_Spinner_Destroyer", "Aggressive_Force"]
+       },
+       {
+         "id": "mi_04",
+         "name": "T. Varma",
+         "role": "Batter",
+         "batting_style": "Left-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 84,
+         "bowling_rating": 45,
+         "natural_aggression": 3,
+         "traits": ["Middle_Overs_Stabilizer", "Gap_Finder", "Reliable"]
+       },
+       {
+         "id": "mi_05",
+         "name": "J. Bhumra",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast",
+         "batting_rating": 30,
+         "bowling_rating": 99,
+         "natural_aggression": 1,
+         "traits": ["Generational_Star", "Yorker_Specialist", "Death_Bowler_King"]
+       },
+       {
+         "id": "mi_06",
+         "name": "T. Boult",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Left-arm fast medium",
+         "batting_rating": 20,
+         "bowling_rating": 89,
+         "natural_aggression": 2,
+         "traits": ["New_Ball_Specialist", "Inswing_Threat", "Experienced"]
+       }
+     ]
+   },
+   {
+     "id": "RCB_FRAN",
+     "team_name": "Bangalore Franchise",
+     "abbreviation": "RCB",
+     "type": "Franchise",
+     "roster": [
+       {
+         "id": "rcb_01",
+         "name": "R. Pettidar",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 82,
+         "bowling_rating": 0,
+         "natural_aggression": 4,
+         "traits": ["Captain", "Aggressive", "Middle_Overs_Smasher"]
+       },
+       {
+         "id": "rcb_02",
+         "name": "V. Kholi",
+         "role": "Batter",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium",
+         "batting_rating": 91,
+         "bowling_rating": 30,
+         "natural_aggression": 3,
+         "traits": ["Anchor_Supreme", "Chasing_King", "Cover_Drive_Specialist"]
+       },
+       {
+         "id": "rcb_03",
+         "name": "P. Salt",
+         "role": "Wicket-keeper",
+         "batting_style": "Right-handed",
+         "bowling_style": "None",
+         "batting_rating": 85,
+         "bowling_rating": 0,
+         "natural_aggression": 5,
+         "traits": ["Keeper_Expert", "Powerplay_Smasher", "Spin_Twin"]
+       },
+       {
+         "id": "rcb_04",
+         "name": "L. Livingstone",
+         "role": "All-rounder",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm off break",
+         "batting_rating": 83,
+         "bowling_rating": 65,
+         "natural_aggression": 5,
+         "traits": ["Six_Hitter_Long", "Pinch_Hitter", "Dual_Spin_Options"]
+       },
+       {
+         "id": "rcb_05",
+         "name": "B. Kumar",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm medium fast",
+         "batting_rating": 45,
+         "bowling_rating": 84,
+         "natural_aggression": 2,
+         "traits": ["Swing_Opener", "Accuracy_Machine", "Economy_Enforcer"]
+       },
+       {
+         "id": "rcb_06",
+         "name": "J. Hazlewood",
+         "role": "Bowler",
+         "batting_style": "Right-handed",
+         "bowling_style": "Right-arm fast medium",
+         "batting_rating": 12,
+         "bowling_rating": 90,
+         "natural_aggression": 1,
+         "traits": ["New_Ball_Enforcer", "Economy_Specialist", "Bounce_Extractor"]
+       }
+     ]
+   }
+ ]
+}
+
+Works cited
+1. Manishrdy/SimCricketX: Simulate Every Ball. Build custom squads, tune pitch conditions, and let a probabilistic engine resolve every delivery — T20 or List A. Full scorecards, career stats, and tournament brackets, all in your browser. · GitHub, https://github.com/Manishrdy/SimCricketX 2. A complete multi-tenant cricket management SaaS platform with secure super admin functionality, player self-service portals, and real-time match tracking. Built with React, Node.js, and Supabase. · GitHub, https://github.com/nitishb-dev/Cricket-Management 3. Building a Deep Cricket Management Game – Tech Stack Suggestions & Collaboration? : r/gamedev - Reddit, https://www.reddit.com/r/gamedev/comments/1s4x7z2/building_a_deep_cricket_management_game_tech/ 4. Offline-First PWAs: Service Worker Caching Strategies - MagicBell, https://www.magicbell.com/blog/offline-first-pwas-service-worker-caching-strategies 5. SQLite Wasm in the browser backed by the Origin Private File System | Blog, https://developer.chrome.com/blog/sqlite-wasm-in-the-browser-backed-by-the-origin-private-file-system 6. Cricket Captain 2025 - App Store - Apple, https://apps.apple.com/in/app/cricket-captain-2025/id6747941136 7. Aniket1603/Cricketverse - GitHub, https://github.com/Aniket1603/Cricketverse 8. Cricket Manager: Case Study - Program-Ace, https://program-ace.com/success-stories/cricket-manager/ 9. Cricket Captain 2025 - Apps on Google Play, https://play.google.com/store/apps/details?id=uk.co.childishthings.cricketcaptain2025 10. GitHub - R3DHULK/cricket-batting-game: A realistic cricket batting simulator built with HTML5, CSS3, and JavaScript. Experience the thrill of batting from a first-person perspective with dynamic ball physics, multiple shot types, and immersive gameplay., https://github.com/R3DHULK/cricket-batting-game 11. akshat-khosya/cricket-commentary-ai: Generating Cricket Commentary using AI · GitHub, https://github.com/akshat-khosya/cricket-commentary-ai 12. The Current State Of SQLite Persistence On The Web: May 2026 Update - PowerSync, https://powersync.com/blog/sqlite-persistence-on-the-web 13. Verify OPFS browser persistence end-to-end on Chrome, Firefox, and Safari #10 - GitHub, https://github.com/libredb/libredb-database/issues/10 14. WebStorage / IndexedDB / OPFS 個人開発でも活躍するブラウザーのデータ保存機能を紹介, https://ics.media/entry/260603/ 15. File System Access API: Browser Support, Methods, Limits - TestMu AI, https://www.testmuai.com/learning-hub/file-system-access-api-browser-support/ 16. Origin Private File System (OPFS) Database with the RxDB OPFS-RxStorage, https://rxdb.info/rx-storage-opfs.html 17. Origin private file system - Web APIs | MDN, https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system 18. Browser compatibility data on OPFS page · Issue #37004 · mdn/content - GitHub, https://github.com/mdn/content/issues/37004 19. workbox の存在を知らずに PWA を実装してハマった話 - Qiita, https://qiita.com/taka_yayoi/items/789dc3af5cd70c50ae80 20. How to Implement a Service Worker with WorkBox in a Progressive Web App, https://www.freecodecamp.org/news/implement-a-service-worker-with-workbox-in-a-pwa/ 21. Make your PWA work offline with a Service-Worker | by Louis Japheth Kouassi | Medium, https://medium.com/@louisjaphethkouassi/make-your-pwa-work-offline-with-a-service-worker-f95f16d93029 22. Workboxを使ってPWAを完全オフライン対応した - Zenn, https://zenn.dev/cureapp/articles/f66551b3995aaf 23. xylium117/pavillion: An interactive cricket simulator that allows you to simulate Test matches - GitHub, https://github.com/xylium117/pavillion 24. Cricket Match Simulation using Machine Learning [Part 1] - DEV Community, https://dev.to/ashwinscode/cricket-match-simulation-using-machine-learning-part-1-1hjd 25. Cricket Tactics Board - App Store - Apple, https://apps.apple.com/ie/app/cricket-tactics-board/id6755672682 26. A Mathematical Modelling Approach to One-Day Cricket Batting Orders - PMC, https://pmc.ncbi.nlm.nih.gov/articles/PMC3861747/ 27. A SIMULATOR FOR TWENTY20 CRICKET - Simon Fraser University, https://www.sfu.ca/~tswartz/papers/t20sim.pdf 28. Predicting T20 Cricket Matches With a Ball Simulation Model - Towards Data Science, https://towardsdatascience.com/predicting-t20-cricket-matches-with-a-ball-simulation-model-1e9cae5dea22/ 29. Teaching Machine Learning Through Cricket: A Practical Engineering Education Approach, https://arxiv.org/html/2510.22392v1 30. Data-Driven Probabilistic System for Batsman Performance Prediction in a Cricket Match, https://www.researchgate.net/publication/369236525_Data-Driven_Probabilistic_System_for_Batsman_Performance_Prediction_in_a_Cricket_Match 31. Simulation-Based Optimisation of Batting Order and Bowling Plans in T20 Cricket - arXiv, https://arxiv.org/pdf/2604.13861 32. Cricket Captain 2026 Player Interface Guide | Beat Every Opponent! : r/CricketCaptain, https://www.reddit.com/r/CricketCaptain/comments/1uib8uj/cricket_captain_2026_player_interface_guide_beat/ 33. nabaruns/Duckworth-Lewis-Stern-method-run-predictor: Python code for joint regression using Minimize function for DLS cricket run prediction - GitHub, https://github.com/nabaruns/Duckworth-Lewis-Stern-method-run-predictor 34. Duckworth-Lewis-Stern calculator to calculate the revised target - Stack Overflow, https://stackoverflow.com/questions/56757942/duckworth-lewis-stern-calculator-to-calculate-the-revised-target 35. Duckworth–Lewis–Stern method - Wikipedia, https://en.wikipedia.org/wiki/Duckworth%E2%80%93Lewis%E2%80%93Stern_method 36. GitHub - DeepankDixit/Duckworth-Lewis-Method: Using the first innings data alone in the above data set, find the best fit 'run production functions' in terms of wickets-in-hand w and overs-to-go u. Assume the model Z(u,w) = Z0(w)[1 - exp, https://github.com/DeepankDixit/Duckworth-Lewis-Method 37. Duckworth-Lewis and Twenty20 Cricket - Simon Fraser University, https://www.sfu.ca/~tswartz/papers/twenty20.pdf 38. An Analysis of Duckworth-Lewis-Stern Method in the Context of Interrupted Limited over Cricket Matches - ResearchGate, https://www.researchgate.net/publication/372611045_An_Analysis_of_Duckworth-Lewis-Stern_Method_in_the_Context_of_Interrupted_Limited_over_Cricket_Matches 39. The Duckworth-Lewis-Stern Method: Messy, but It's What We Have Right Now - Reddit, https://www.reddit.com/r/Cricket/comments/1dl6c9f/the_duckworthlewisstern_method_messy_but_its_what/ 40. India's 'home advantage' in T20 World Cup could be a trap: Challenges defending champions will face | Cricket, https://www.hindustantimes.com/cricket/indias-home-advantage-in-t20-world-cup-could-be-a-trap-challenges-defending-champions-will-face-101769525683586.html 41. A Captain's Guide to Effective Leadership in Cricket, https://www.cricketforall.com.au/blogs/articles-tips/a-captain-s-guide-to-effective-leadership-in-cricket 42. Root rides to English cricket's rescue and returns as captain on a 'game-by-game basis', https://apnews.com/article/england-root-stokes-d77abee2cd8add2c43f0af8d4355a213 43. T20 Venue Stats & Pitch Analysis - Big Hit Cricket, https://bighitcricket.co.uk/venues 44. Adelaide Oval, Adelaide – Ultimate Venue Guide - Roanuz Cricket API, https://www.cricketapi.com/v5/blog/adelaide-ultimate-venue-guide 45. MA Chidambaram Stadium IPL Pitch Report: Records & Stats - AllCric, https://allcric.com/blog/ma-chidambaram-stadium-ipl-pitch-report/ 46. Cricket Architect — Free Browser Cricket Management Game | CricketWeb Forum, https://www.cricketweb.net/forum/threads/cricket-architect-%E2%80%94-free-browser-cricket-management-game.97863/ 47. 2026 Men's T20 World Cup squads - Wikipedia, https://en.wikipedia.org/wiki/2026_Men%27s_T20_World_Cup_squads
