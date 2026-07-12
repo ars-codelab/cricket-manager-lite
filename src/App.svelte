@@ -123,6 +123,7 @@
   let livePaceBowlingPlan: PaceBowlingPlan = defaultBowlingTactics.pacePlan
   let liveSpinBowlingPlan: SpinBowlingPlan = defaultBowlingTactics.spinPlan
   let batterPlans: Record<string, BattingTactics> = {}
+  let bowlerPlans: Record<string, BowlingTactics> = {}
   let firstInningsResult: SimulationResult | null = null
   let inningsState: InningsState = createInningsState(
     venues.find((item) => item.id === 'wankhede') ?? venues[0],
@@ -140,6 +141,7 @@
     inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty })
     firstInningsResult = null
     batterPlans = {}
+    bowlerPlans = {}
     lastNextBallKey = ''
     nextBowlerId = defaultBowlerForOver(inningsState)
     spellBowlerId = nextBowlerId
@@ -197,13 +199,23 @@
   $: nextBallKey = `${lastSimulationKey}-${progress.legalBalls}-${progress.wickets}-${currentStriker?.id ?? 'complete'}`
   $: if (nextBallKey !== lastNextBallKey) {
     const storedPlan = currentStriker?.id ? batterPlans[currentStriker.id] : null
+    const preferredBowlerId = spellBowlerId && !bowlerUsage[spellBowlerId]?.exhausted ? spellBowlerId : defaultBowlerForOver(inningsState)
+    const storedBowlingPlan = bowlerPlans[preferredBowlerId]
     lastNextBallKey = nextBallKey
-    nextBowlerId = defaultBowlerForOver(inningsState)
+    nextBowlerId = preferredBowlerId
     liveAggression = storedPlan?.aggression ?? aggression
     liveShots = storedPlan?.shots ?? shots
     livePacePlan = storedPlan?.pacePlan ?? pacePlan
     liveSpinPlan = storedPlan?.spinPlan ?? spinPlan
     liveRunning = storedPlan?.running ?? running
+    if (storedBowlingPlan) {
+      liveBowlingLength = storedBowlingPlan.length
+      liveBowlingLine = storedBowlingPlan.line
+      liveField = storedBowlingPlan.field
+      liveVariation = storedBowlingPlan.variation
+      livePaceBowlingPlan = storedBowlingPlan.pacePlan
+      liveSpinBowlingPlan = storedBowlingPlan.spinPlan
+    }
   }
   $: promptKey = `${lastSimulationKey}-${inningsState.inningsNumber}-${progress.wickets}-${currentOverNumber}-${spellBowlerId}-${spellComplete}-${isComplete}`
   $: if (!isComplete && promptKey !== lastPromptKey) {
@@ -335,6 +347,17 @@
     spinPlan: liveSpinBowlingPlan,
   })
 
+  const loadBowlerPlan = (bowlerId: string) => {
+    const plan = bowlerPlans[bowlerId]
+    if (!plan) return
+    liveBowlingLength = plan.length
+    liveBowlingLine = plan.line
+    liveField = plan.field
+    liveVariation = plan.variation
+    livePaceBowlingPlan = plan.pacePlan
+    liveSpinBowlingPlan = plan.spinPlan
+  }
+
   const applyAiPlanToLiveState = () => {
     const plan = chooseAiCaptaincyPlan(inningsState, difficulty)
     nextBowlerId = plan.bowlerId
@@ -373,6 +396,10 @@
     spellBowlerId = selected.id
     spellStartBalls = selected.balls
     nextBowlerId = selected.id
+    bowlerPlans = {
+      ...bowlerPlans,
+      [selected.id]: currentLiveBowlingTactics(),
+    }
     activeSheet = null
   }
 
@@ -425,6 +452,7 @@
       { inningsNumber: 2, targetScore },
     )
     batterPlans = {}
+    bowlerPlans = {}
     lastNextBallKey = ''
     nextBowlerId = defaultBowlerForOver(inningsState)
     spellBowlerId = nextBowlerId
@@ -445,8 +473,13 @@
     inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty })
     firstInningsResult = null
     batterPlans = {}
+    bowlerPlans = {}
     lastNextBallKey = ''
     nextBowlerId = defaultBowlerForOver(inningsState)
+    spellBowlerId = nextBowlerId
+    spellStartBalls = 0
+    plannedSpellOvers = defaultSpellOvers(format)
+    activeSheet = null
   }
 
   const currentSetup = (): SavedSetup => ({
@@ -1102,7 +1135,7 @@
             <p class="muted">Pick the next bowler and spell target. A spell means this bowler's next planned overs, not consecutive overs.</p>
             <label>
               Bowler
-              <select bind:value={nextBowlerId}>
+              <select bind:value={nextBowlerId} on:change={() => loadBowlerPlan(nextBowlerId)}>
                 {#each result.scorecard.bowling as bowler}
                   <option value={bowler.id} disabled={bowlerUsage[bowler.id]?.exhausted}>
                     {bowler.name} · {bowlingOvers(bowler.balls)} ov · {bowlerUsage[bowler.id]?.remainingOvers ?? 'open'} left · {bowlerUsage[bowler.id]?.fatigueLabel ?? 'Fresh'}
