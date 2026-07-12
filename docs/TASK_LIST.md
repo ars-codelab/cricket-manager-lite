@@ -52,8 +52,8 @@
 ## Teams And Rosters
 
 - Define Player, Team, Squad, Rating, Fixture, Series, SaveGame, Scorecard, and BallEvent types.
-- Add seed rosters for IPL plus top 10 international teams.
-- Add validation for duplicate IDs, missing required fields, invalid squads, invalid ratings, and broken references.
+- Add seed rosters for IPL plus top 10 international teams. Current normalized fixture includes 20 teams from the Gemini research passes.
+- Add validation for duplicate IDs, missing required fields, invalid squads, invalid ratings, and broken references. Current validation covers roster IDs, references, enum values, and rating ranges.
 - Add dev-only roster refresh workflow that outputs reviewable diffs before curated seed data changes.
 
 ## Mobile UI

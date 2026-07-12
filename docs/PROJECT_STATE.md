@@ -19,6 +19,7 @@ Build a downloadable, offline-first mobile web cricket management game inspired 
 - `research/condition-model-implementation-notes.md`: implementation digest derived from the research.
 - `src/lib/types.ts`: condition, scorecard, metadata, and simulation types.
 - `src/lib/data.ts`: venue matrix, weather, pitch, and format scale data.
+- `src/lib/rosters.ts`: normalized seed roster fixture generated from the two Gemini roster research passes.
 - `src/lib/simulation.ts`: deterministic stateful ball-by-ball innings simulator.
 - `src/lib/validation.ts`: fixture validation helpers.
 - `src/App.svelte`: mobile custom match UI with scorecard and ball log.
@@ -57,17 +58,20 @@ Later milestones add:
 - Match screen supports progressive simulation controls: next over, next wicket, custom overs, and AI-assisted auto chunks.
 - Match screen includes contextual decision sheets for current-batter plans, bowler spells, bowling line, length, field, variation, pace plan, and spin plan.
 - Setup supports sandbox mode and one-player mode; one-player mode lets the user control Team A or Team B while AI controls opponent decisions using difficulty and conditions.
+- Setup supports Team A and Team B selection from 20 normalized seed teams; first innings uses Team A batting, the chase uses Team B batting.
+- Scorecards now use selected roster player names and the top bowling options from the selected bowling side.
 - Bowler spells track planned spell overs, spell progress, fatigue, and remaining quota.
 - Live batting and bowling decisions now feed future delivery probabilities instead of only changing the visible scorecard.
 - Current match setup can be saved locally, loaded, exported to JSON, and imported back into the browser.
 - Static distribution groundwork is in place: relative Vite paths, web manifest, service worker, Pages workflow, and release ZIP workflow.
 - Engine tests cover deterministic full innings, one-over advancement, stop-at-next-wicket advancement, selected bowler application, tactical divergence, fixture validation, and scorecard accounting.
 - Engine tests also cover limited-overs bowler caps, opening spells, and AI captaincy plan selection.
+- Fixture tests validate normalized roster data and broken roster references.
 
 ## Known Technical Debt
 
 - Dependency audit currently flags Vite/esbuild dev-server advisories. The automated fix jumps to a breaking Vite 8 path, so this should be handled in a dedicated Node/tooling upgrade slice.
-- Current engine uses generic placeholder XIs; real team/player rosters are a later milestone.
+- Current engine uses normalized seed roster names and ratings, but ratings only drive scorecard lineup/bowling pool selection so far; delivery probabilities are not yet player-rating-specific.
 - Test cricket remains a simplified one-innings simulation with five-day forecast display and active-day modifiers, not full multi-innings match state.
 - Service worker is basic app-shell/runtime caching and should be hardened before public beta.
 - Current save implementation uses localStorage for setup data only; full match state, match history, and career saves should move to IndexedDB.

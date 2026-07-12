@@ -1,4 +1,5 @@
 import { formatScale, parForFormat, pitchProfiles, venues, weatherProfiles } from './data'
+import { rosterData } from './rosters'
 import type {
   BallEvent,
   BatterScore,
@@ -17,6 +18,7 @@ import type {
   OutfieldCondition,
   Partnership,
   PitchType,
+  PlayerProfile,
   SimulationMetadata,
   SimulationResult,
   TestDayCondition,
@@ -27,7 +29,7 @@ import type {
 const ENGINE_VERSION = '0.3.0'
 const RULESET_VERSION = '0.1.0'
 const DATA_VERSION = '0.1.0'
-const ROSTER_VERSION = 'generic-0.1.0'
+const ROSTER_VERSION = rosterData.rosterVersion
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
@@ -179,6 +181,53 @@ const genericBowlers = Array.from({ length: 5 }, (_, index) => ({
   name: `Bowler ${index + 1}`,
 }))
 
+const playersForTeam = (teamId: string | undefined) => {
+  const team = rosterData.teams.find((item) => item.id === teamId)
+  if (!team) return []
+  const playersById = new Map(rosterData.players.map((player) => [player.id, player]))
+  return team.roster.map((playerId) => playersById.get(playerId)).filter((player): player is PlayerProfile => Boolean(player))
+}
+
+const battingOrderRank: Record<PlayerProfile['battingOrder'], number> = {
+  Opener: 0,
+  'Top order': 1,
+  'Middle order': 2,
+  Finisher: 3,
+  Tail: 4,
+}
+
+const buildBatters = (teamId: string | undefined): BatterScore[] => {
+  const players = playersForTeam(teamId)
+  const orderedPlayers = [...players].sort((first, second) => battingOrderRank[first.battingOrder] - battingOrderRank[second.battingOrder] || second.battingRating - first.battingRating)
+  if (orderedPlayers.length < 2) return genericBatters.map((batter) => ({ ...batter, runs: 0, balls: 0, fours: 0, sixes: 0 }))
+
+  return orderedPlayers.slice(0, 11).map((player) => ({
+    id: player.id,
+    name: player.name,
+    runs: 0,
+    balls: 0,
+    fours: 0,
+    sixes: 0,
+  }))
+}
+
+const buildBowlers = (teamId: string | undefined): BowlerFigures[] => {
+  const players = playersForTeam(teamId)
+  const orderedPlayers = [...players].sort((first, second) => second.bowlingRating - first.bowlingRating)
+  if (orderedPlayers.length < 5) return genericBowlers.map((bowler) => ({ ...bowler, balls: 0, maidens: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }))
+
+  return orderedPlayers.slice(0, 5).map((player) => ({
+    id: player.id,
+    name: player.name,
+    balls: 0,
+    maidens: 0,
+    runs: 0,
+    wickets: 0,
+    wides: 0,
+    noBalls: 0,
+  }))
+}
+
 const overString = (legalBalls: number) => `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`
 
 const maxLegalBalls = (format: MatchFormat) => {
@@ -306,6 +355,7 @@ const buildMetadata = (
   pitchId: PitchType,
   tactics: BattingTactics,
   conditions: MatchConditions,
+  teamIds: { battingTeamId?: string; bowlingTeamId?: string },
 ): SimulationMetadata => ({
   engineVersion: ENGINE_VERSION,
   rulesetVersion: RULESET_VERSION,
@@ -316,6 +366,8 @@ const buildMetadata = (
   venueId: venue.id,
   weatherId,
   pitchId,
+  battingTeamId: teamIds.battingTeamId,
+  bowlingTeamId: teamIds.bowlingTeamId,
   tactics,
   conditions,
 })
@@ -340,18 +392,18 @@ export const createInningsState = (
   pitchId: PitchType,
   tactics: BattingTactics,
   conditions: Partial<MatchConditions> = {},
-  options: { inningsNumber?: number; targetScore?: number } = {},
+  options: { inningsNumber?: number; targetScore?: number; battingTeamId?: string; bowlingTeamId?: string } = {},
 ): InningsState => {
   const matchConditions = { ...defaultConditions, ...conditions }
   const weather = weatherProfiles.find((item) => item.id === weatherId) ?? weatherProfiles[0]
   const pitch = pitchProfiles.find((item) => item.id === pitchId) ?? pitchProfiles[0]
   const scale = formatScale[format]
-  const seed = `${venue.id}-${format}-${weatherId}-${pitchId}-${JSON.stringify(tactics)}-${JSON.stringify(matchConditions)}`
+  const seed = `${venue.id}-${format}-${weatherId}-${pitchId}-${options.battingTeamId ?? 'generic-bat'}-${options.bowlingTeamId ?? 'generic-bowl'}-${JSON.stringify(tactics)}-${JSON.stringify(matchConditions)}`
   const random = createSeededRandom(seed)
   const par = parForFormat(venue, format)
   const forecast = buildTestForecast(venue, weatherId)
-  const batting: BatterScore[] = genericBatters.map((batter) => ({ ...batter, runs: 0, balls: 0, fours: 0, sixes: 0 }))
-  const bowling: BowlerFigures[] = genericBowlers.map((bowler) => ({ ...bowler, balls: 0, maidens: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }))
+  const batting = buildBatters(options.battingTeamId)
+  const bowling = buildBowlers(options.bowlingTeamId)
 
   return {
     inningsNumber: options.inningsNumber ?? 1,
@@ -368,7 +420,7 @@ export const createInningsState = (
     maxLegalBalls: maxLegalBalls(format),
     targetScore: options.targetScore,
     par,
-    metadata: buildMetadata(seed, format, venue, weatherId, pitchId, tactics, matchConditions),
+    metadata: buildMetadata(seed, format, venue, weatherId, pitchId, tactics, matchConditions, { battingTeamId: options.battingTeamId, bowlingTeamId: options.bowlingTeamId }),
     forecast,
     scorecard: {
       batting,

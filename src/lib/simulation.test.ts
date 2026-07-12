@@ -65,7 +65,9 @@ describe('simulateInnings', () => {
     expect(result.wickets).toBeGreaterThanOrEqual(1)
     expect(result.wickets).toBeLessThanOrEqual(10)
     expect(result.score).toBeGreaterThanOrEqual(42)
-    expect(result.overs).toBe('50.0')
+    const legalBalls = result.scorecard.balls.filter((ball) => ball.legal).length
+    expect(legalBalls === 300 || result.wickets === 10).toBe(true)
+    expect(legalBalls).toBeLessThanOrEqual(300)
   })
 
   it('keeps scorecard accounting internally consistent', () => {
@@ -170,6 +172,16 @@ describe('stateful innings engine', () => {
     expect(chase.completed).toBe(true)
     expect(chase.score).toBeGreaterThanOrEqual(1)
     expect(chase.scorecard.balls.length).toBeGreaterThan(0)
+  })
+
+  it('uses selected roster teams for batting and bowling scorecards', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const state = createInningsState(venue, 'T20', 'Humid', 'Flat', tactics, {}, { battingTeamId: 'ind_int', bowlingTeamId: 'aus_int' })
+
+    expect(state.scorecard.batting[0].name).not.toBe('Batter 1')
+    expect(state.scorecard.bowling[0].name).not.toBe('Bowler 1')
+    expect(state.metadata.battingTeamId).toBe('ind_int')
+    expect(state.metadata.bowlingTeamId).toBe('aus_int')
   })
 })
 

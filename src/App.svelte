@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { parForFormat, pitchProfiles, venues, weatherProfiles } from './lib/data'
+  import { rosterData } from './lib/rosters'
   import { advanceInnings, chooseAiCaptaincyPlan, createInningsState, defaultBowlerForOver, defaultBowlingTactics, inningsStateToResult, maxBallsPerBowler } from './lib/simulation'
   import type {
     Aggression,
@@ -57,6 +58,8 @@
     running: RunningRisk
     controlMode?: ControlMode
     userSide?: UserSide
+    teamAId?: string
+    teamBId?: string
     savedAt: string
   }
 
@@ -80,6 +83,7 @@
   const controlModes: ControlMode[] = ['sandbox', 'one-player']
   const userSides: UserSide[] = ['teamA', 'teamB']
   const autoSpeeds: AutoSpeed[] = ['Instant', 'Fast', 'Watch']
+  const rosterTeams = rosterData.teams
 
   let view: View = 'home'
   let format: MatchFormat = 'T20'
@@ -96,6 +100,8 @@
   let running: RunningRisk = 'Normal'
   let controlMode: ControlMode = 'sandbox'
   let userSide: UserSide = 'teamA'
+  let teamAId = 'ind_int'
+  let teamBId = 'aus_int'
   let saveMessage = 'No saved setup loaded.'
   let importInput: HTMLInputElement | null = null
   let customOvers = 2
@@ -135,10 +141,12 @@
   )
 
   $: venue = venues.find((item) => item.id === venueId) ?? venues[0]
-  $: setupKey = `${venue.id}-${format}-${weather}-${pitch}-${matchTime}-${outfield}-${difficulty}-${aggression}-${shots}-${pacePlan}-${spinPlan}-${running}-${controlMode}-${userSide}`
+  $: teamA = rosterTeams.find((team) => team.id === teamAId) ?? rosterTeams[0]
+  $: teamB = rosterTeams.find((team) => team.id === teamBId) ?? rosterTeams[1] ?? rosterTeams[0]
+  $: setupKey = `${venue.id}-${format}-${weather}-${pitch}-${matchTime}-${outfield}-${difficulty}-${aggression}-${shots}-${pacePlan}-${spinPlan}-${running}-${controlMode}-${userSide}-${teamA.id}-${teamB.id}`
   $: if (setupKey !== lastSimulationKey) {
     lastSimulationKey = setupKey
-    inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty })
+    inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty }, { battingTeamId: teamA.id, bowlingTeamId: teamB.id })
     firstInningsResult = null
     batterPlans = {}
     bowlerPlans = {}
@@ -449,7 +457,7 @@
       pitch,
       currentBattingTactics(),
       { matchTime, outfield, difficulty },
-      { inningsNumber: 2, targetScore },
+      { inningsNumber: 2, targetScore, battingTeamId: teamB.id, bowlingTeamId: teamA.id },
     )
     batterPlans = {}
     bowlerPlans = {}
@@ -470,7 +478,7 @@
   }
 
   const resetInnings = () => {
-    inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty })
+    inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty }, { battingTeamId: teamA.id, bowlingTeamId: teamB.id })
     firstInningsResult = null
     batterPlans = {}
     bowlerPlans = {}
@@ -497,6 +505,8 @@
     running,
     controlMode,
     userSide,
+    teamAId: teamA.id,
+    teamBId: teamB.id,
     savedAt: new Date().toISOString(),
   })
 
@@ -515,6 +525,8 @@
     running = setup.running
     controlMode = setup.controlMode ?? 'sandbox'
     userSide = setup.userSide ?? 'teamA'
+    teamAId = setup.teamAId ?? 'ind_int'
+    teamBId = setup.teamBId ?? 'aus_int'
   }
 
   const saveSetup = () => {
@@ -748,6 +760,24 @@
         </label>
 
         <label>
+          Team A bats first
+          <select bind:value={teamAId}>
+            {#each rosterTeams as team}
+              <option value={team.id}>{team.abbreviation} · {team.name}</option>
+            {/each}
+          </select>
+        </label>
+
+        <label>
+          Team B chases
+          <select bind:value={teamBId}>
+            {#each rosterTeams as team}
+              <option value={team.id}>{team.abbreviation} · {team.name}</option>
+            {/each}
+          </select>
+        </label>
+
+        <label>
           Control mode
           <select bind:value={controlMode}>
             {#each controlModes as item}
@@ -846,14 +876,14 @@
       <div class="cockpit-header">
         <button class="exit-match" type="button" on:click={exitMatch}>Exit</button>
         <div>
-          <span>{inningsLabel} · {controlLabel}</span>
+          <span>{inningsLabel} · {inningsState.inningsNumber === 1 ? teamA.abbreviation : teamB.abbreviation} batting</span>
           <strong>{progress.score}/{progress.wickets}</strong>
-          <small>{progress.overs} ov · RR {progress.runRate}{requiredRate ? ` · Req ${requiredRate}` : ''} · {momentumLabel}</small>
+          <small>{progress.overs} ov · RR {progress.runRate}{requiredRate ? ` · Req ${requiredRate}` : ''} · {controlLabel}</small>
         </div>
         <div>
           <span>{typeof inningsState.targetScore === 'number' ? chaseLabel : `${format} par ${par}`}</span>
           <strong>{venue.city}</strong>
-          <small>{weather} · {pitch} · {matchTime}</small>
+          <small>{teamA.abbreviation} v {teamB.abbreviation} · {weather} · {pitch}</small>
         </div>
       </div>
 

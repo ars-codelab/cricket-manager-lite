@@ -18,6 +18,24 @@ export type PaceBowlingPlan = 'Hit deck' | 'Swing' | 'Seam' | 'Change-ups'
 export type SpinBowlingPlan = 'Attack stumps' | 'Defend into pitch' | 'Use flight' | 'Fire it in'
 export type ExtraType = 'wide' | 'no-ball' | 'bye' | 'leg-bye'
 export type WicketType = 'bowled' | 'lbw' | 'caught' | 'caught-behind' | 'stumped' | 'run-out' | 'hit-wicket'
+export type PlayerRole = 'Batter' | 'Wicket-keeper' | 'All-rounder' | 'Bowler'
+export type BattingStyle = 'Right-handed' | 'Left-handed'
+export type BowlingStyle =
+  | 'None'
+  | 'Right-arm fast'
+  | 'Right-arm fast medium'
+  | 'Right-arm medium fast'
+  | 'Right-arm medium'
+  | 'Left-arm fast'
+  | 'Left-arm fast medium'
+  | 'Left-arm medium fast'
+  | 'Left-arm medium'
+  | 'Right-arm off break'
+  | 'Right-arm leg break'
+  | 'Slow left-arm orthodox'
+  | 'Left-arm wrist spin'
+export type BattingOrderBand = 'Opener' | 'Top order' | 'Middle order' | 'Finisher' | 'Tail'
+export type RosterTeamType = 'International' | 'Franchise'
 
 export type Venue = {
   id: string
@@ -92,6 +110,39 @@ export type MatchConditions = {
   matchTime: MatchTime
   outfield: OutfieldCondition
   difficulty: Difficulty
+}
+
+export type PlayerProfile = {
+  id: string
+  name: string
+  role: PlayerRole
+  battingStyle: BattingStyle
+  bowlingStyle: BowlingStyle
+  battingRating: number
+  bowlingRating: number
+  fieldingRating: number
+  wicketkeepingRating: number
+  staminaRating: number
+  consistencyRating: number
+  naturalAggression: number
+  battingOrder: BattingOrderBand
+  traits: string[]
+  sourceTeams: string[]
+}
+
+export type RosterTeam = {
+  id: string
+  name: string
+  abbreviation: string
+  type: RosterTeamType
+  roster: string[]
+}
+
+export type RosterData = {
+  rosterVersion: string
+  generatedFrom: string[]
+  players: PlayerProfile[]
+  teams: RosterTeam[]
 }
 
 export type BallEvent = {
@@ -173,6 +224,8 @@ export type SimulationMetadata = {
   venueId: string
   weatherId: WeatherType
   pitchId: PitchType
+  battingTeamId?: string
+  bowlingTeamId?: string
   tactics: BattingTactics
   conditions: MatchConditions
 }

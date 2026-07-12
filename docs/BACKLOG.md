@@ -213,16 +213,35 @@ Acceptance criteria:
 
 ## Milestone 3: Teams And Rosters
 
+Status: started. Normalized seed roster fixtures are loaded from research data and selectable in match setup.
+
 ### Story: Add Static Teams
 
 As a player, I want recognizable teams and squads so that matches feel grounded in real cricket.
 
 Acceptance criteria:
 
-- App includes curated seed teams for IPL and top international sides.
-- Player data avoids copied copyrighted profile text.
-- Roster IDs and ratings validate successfully.
-- Match engine can consume generic player ratings.
+- [x] App includes curated seed teams for IPL and top international sides.
+- [x] Player data avoids copied copyrighted profile text.
+- [x] Roster IDs and ratings validate successfully.
+- [x] Match engine can consume generic player ratings for scorecard names and bowling pools.
+- [ ] Player ratings influence delivery probabilities beyond lineup names.
+- [ ] Add source review workflow before future roster refreshes.
+
+### Story: Select Match Teams
+
+Status: started.
+
+As a player, I want to choose the two teams before starting a match so that scorecards use recognizable player names.
+
+Acceptance criteria:
+
+- [x] Setup screen lets the user choose Team A and Team B.
+- [x] First innings uses Team A batting and Team B bowling.
+- [x] Chase innings swaps batting and bowling teams.
+- [x] Saved setup includes selected team IDs.
+- [ ] Prevent or warn when the same team is selected twice.
+- [ ] Show team rosters before starting the match.
 
 ### Story: Pick A Playing XI
 
