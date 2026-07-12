@@ -39,12 +39,11 @@ The first playable milestone is a custom/friendly match simulator:
 
 Later milestones add:
 
-- Full scorecards and ball logs.
-- Teams, players, rosters, and squad selection.
+- Playing XI selection, roster previews, and deeper player-rating impact.
 - Series and career-lite modes.
-- AI captaincy and difficulty levels.
-- Offline saves and import/export.
-- GitHub Pages and release ZIP distribution.
+- Richer AI captaincy and difficulty-level tuning.
+- IndexedDB match history, career saves, and fuller import/export.
+- Hardening for PWA offline behavior and release ZIP distribution.
 
 ## Current Implementation Checkpoints
 
@@ -75,7 +74,7 @@ Later milestones add:
 - Test cricket remains a simplified one-innings simulation with five-day forecast display and active-day modifiers, not full multi-innings match state.
 - Service worker is basic app-shell/runtime caching and should be hardened before public beta.
 - Current save implementation uses localStorage for setup data only; full match state, match history, and career saves should move to IndexedDB.
-- Live decisions are currently team-level/generic-player tactics; deeper role/rating impact, true batting order choices, and richer AI should be added once real rosters and player attributes exist.
+- Live decisions are currently team-level tactics applied to roster-named players; deeper role/rating impact, true batting order choices, and richer AI should be added on top of the seed roster fixture.
 
 ## GitHub
 

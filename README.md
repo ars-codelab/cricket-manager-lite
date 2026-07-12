@@ -2,26 +2,29 @@
 
 Cricket Manager Lite is an offline-first mobile web cricket management simulator. It is inspired by cricket captaincy games, but built as a lightweight static browser app that anyone can clone, download, or host on GitHub Pages.
 
-The current prototype focuses on custom/friendly matches where venue, pitch, weather, and tactics influence a deterministic simulation.
+The current playable slice focuses on custom/friendly matches where selected teams, venue, pitch, weather, tactics, and difficulty influence a deterministic ball-by-ball simulation.
 
 ## Current Status
 
-This project is in early active development.
+This project is in early active development, with the first playable custom-match loop running in the browser and deployed through GitHub Pages.
 
 Implemented now:
 
 - Svelte 5 + Vite + TypeScript mobile web app.
-- Venue, pitch, weather, and batting tactic controls.
-- Deterministic projected-innings prototype.
+- Venue, pitch, weather, match-time, outfield, difficulty, and team-selection controls.
+- Deterministic stateful ball-by-ball engine with progressive simulation by over, wicket, custom interval, or innings.
+- Two-innings chase flow with winner, margin, player of the match, top batters, and top bowlers.
+- Mobile match cockpit with score, current players, action controls, decision sheets, scorecard, and live stream.
+- Normalized seed roster fixture with 20 teams and 160 shared player profiles from reviewed research imports.
 - Test match five-day surface forecast prototype.
-- Local design docs and backlog.
+- Local design docs, backlog, fixture validation, and engine tests.
 
 Next major work:
 
-- Ball-by-ball innings engine.
-- Scorecards, ball log, and commentary.
-- Expanded venue matrix and fixture validation.
-- Offline saves and GitHub Pages distribution.
+- Make player ratings affect delivery probabilities, not only lineup/bowling-pool selection.
+- Add playing XI selection, roster previews, and richer team AI.
+- Add IndexedDB match/career saves.
+- Add series and career-lite modes.
 
 ## Development
 
@@ -67,7 +70,7 @@ The app is designed to run without a runtime backend. The intended distribution 
 - GitHub Pages for hosted play.
 - Release ZIP for download.
 - Local clone with `npm install && npm run build`.
-- Later PWA install/offline cache.
+- PWA install/offline cache through the current basic service worker, with hardening still planned.
 
 ## Data And Licensing
 

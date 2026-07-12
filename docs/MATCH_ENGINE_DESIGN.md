@@ -4,7 +4,7 @@
 
 The match engine turns match setup, conditions, tactics, and a seed into deterministic cricket outcomes. It must produce believable scorecards and explanations while staying simple enough to run entirely in the browser.
 
-The current implementation target is a single stateful ball-by-ball innings for custom/friendly matches. Full multi-innings match orchestration, teams, real player rosters, and career state come later.
+The current implementation target is a stateful ball-by-ball custom/friendly match with two innings, selected seed roster teams, chase completion, and a mobile match cockpit. Full Test match orchestration, playing XI selection, series, and career state come later.
 
 ## Inputs
 
@@ -19,6 +19,7 @@ Required inputs:
 - `battingTactics`: aggression, shot selection, pace plan, spin plan, and running risk.
 - `bowlingTactics`: length, line, field, variation use, pace plan, and spin plan.
 - `advanceCommand`: continue by legal balls, overs, wicket, or full innings from the current state.
+- `battingTeamId` and `bowlingTeamId`: optional roster team IDs used to resolve scorecard names and bowling pools.
 - `seed`: stable string used for deterministic randomness.
 - `difficulty`: casual, standard, expert, or simulation.
 
@@ -41,9 +42,10 @@ Each delivery resolves from layered probabilities:
 4. Weather and match time.
 5. Outfield condition.
 6. Ball age and innings phase.
-7. Batting and bowling tactics.
-8. Match pressure.
-9. Seeded random sample.
+7. Player/roster ratings once fully integrated.
+8. Batting and bowling tactics.
+9. Match pressure.
+10. Seeded random sample.
 
 Conditions modify event probabilities, not fixed outcomes. For example, overcast weather increases swing, seam, edges, and wicket pressure; it does not guarantee wickets.
 
@@ -104,7 +106,7 @@ The first engine must support:
 - Extras accounting.
 - Batting card and bowling figures.
 
-Chase completion, declarations, follow-on, weather interruptions, DLS, and full Test match state are later features.
+Chase completion is implemented for the current two-innings flow. Declarations, follow-on, weather interruptions, DLS, and full Test match state are later features.
 
 ## Scorecard Outputs
 
@@ -124,16 +126,16 @@ Every simulated innings should output:
 
 The scorecard must be internally auditable: total score equals batter runs plus extras, and bowler conceded runs must match scoring rules.
 
-## Generic Players For First Slice
+## Rosters And Current Player Model
 
-Until team rosters exist, the engine can use generated placeholder XIs:
+The engine can consume selected roster teams from `src/lib/rosters.ts`:
 
-- Batters 1-7.
-- Bowlers 1-5.
-- Ratings can be neutral defaults.
-- Names can be generic and clearly non-official.
+- Batting cards use ordered player names from the selected batting team.
+- Bowling figures use the top bowling options from the selected bowling side.
+- Roster IDs are stored in simulation metadata.
+- Generic placeholder XIs remain as a fallback if a selected team cannot supply enough players.
 
-This allows scorecard mechanics to be built before roster data and licensing decisions are finalized.
+Current limitation: player ratings primarily drive lineup ordering and bowling-pool selection. Delivery probabilities still need deeper batter-vs-bowler rating integration.
 
 ## Test Cricket Handling
 
@@ -159,7 +161,7 @@ Simulation must be reproducible from:
 - Match time.
 - Outfield.
 - Tactics.
-- Player/roster data once available.
+- Player/roster data.
 
 Changing any of those inputs may change the result. Repeating the same inputs must produce the same result.
 

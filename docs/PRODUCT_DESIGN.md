@@ -51,6 +51,7 @@ Success means a user can open the app on a phone, configure a match in under a m
 - Custom/friendly matches.
 - Sandbox and one-player match control.
 - Static venue, pitch, weather, and tactic data.
+- Selectable seed roster teams for recognizable scorecards.
 - Deterministic TypeScript simulation.
 - Mobile-first Svelte UI.
 - Browser-only runtime.
@@ -58,9 +59,9 @@ Success means a user can open the app on a phone, configure a match in under a m
 
 ## Later Scope
 
-- Full teams, rosters, ratings, and squad selection.
+- Playing XI selection, roster previews, and deeper rating-driven player impact.
 - Series modes and career-lite modes.
-- AI bowling, toss, field, and selection decisions.
+- AI toss, field, selection, and richer player-specific decisions.
 - IndexedDB saves, import/export, and PWA install support.
 - GitHub Pages deployment and release ZIP artifacts.
 - Curated roster refresh workflow with reviewable diffs.

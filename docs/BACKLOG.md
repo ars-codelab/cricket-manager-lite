@@ -2,7 +2,7 @@
 
 ## Milestone 1: First Playable Custom Match
 
-Status: playable for a single generic innings with stateful over/wicket/custom simulation controls. Live batting and bowling decisions now affect future deliveries. Remaining work is stronger plausibility tuning, real teams/players, second innings/chases, and deeper player-specific captaincy impact.
+Status: playable for custom two-innings matches with selected roster teams, stateful over/wicket/custom simulation controls, chase completion, and game-over summaries. Live batting and bowling decisions now affect future deliveries. Remaining work is stronger plausibility tuning, playing XI selection, and deeper player-specific captaincy impact.
 
 ### Story: Configure A Match
 
@@ -140,7 +140,7 @@ Acceptance criteria:
 - [x] User can choose Team A or Team B in one-player mode.
 - [x] AI can choose batting tactics, bowling tactics, bowler, spell length, and a concise reason.
 - [x] AI choices use match difficulty, conditions, format phase, and target pressure.
-- [ ] Add visible team names once real teams/rosters are introduced.
+- [x] Add visible team names from selected seed rosters.
 - [ ] Add deeper AI evaluation after player ratings exist.
 
 ### Story: Manage Bowler Spells
@@ -213,7 +213,7 @@ Acceptance criteria:
 
 ## Milestone 3: Teams And Rosters
 
-Status: started. Normalized seed roster fixtures are loaded from research data and selectable in match setup.
+Status: started. Normalized seed roster fixtures are loaded from research data, selectable in match setup, and validated in tests.
 
 ### Story: Add Static Teams
 
@@ -230,7 +230,7 @@ Acceptance criteria:
 
 ### Story: Select Match Teams
 
-Status: started.
+Status: first slice done.
 
 As a player, I want to choose the two teams before starting a match so that scorecards use recognizable player names.
 

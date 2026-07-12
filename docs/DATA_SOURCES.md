@@ -25,8 +25,14 @@ Local research files:
 
 - `research/match-conditions-tactical-simulator.md`
 - `research/condition-model-implementation-notes.md`
+- `research/roster-research-2026-gemini.txt`
+- `research/roster-research-2026-gemini.json`
+- `research/roster-research-2026-gemini-audit.md`
+- `research/roster-research-2026-gemini-pass2.txt`
+- `research/roster-research-2026-gemini-pass2.json`
+- `research/roster-research-2026-gemini-pass2-audit.md`
 
-These files inform the condition model, but implementation should convert them into compact, original fixtures and source notes.
+These files inform the condition model and initial roster seed data, but runtime implementation should use compact, original, reviewed fixtures rather than raw scraped or generated research text.
 
 ## Fixture Requirements
 
@@ -37,11 +43,22 @@ Each curated fixture should be:
 - Validated for duplicate IDs and missing fields.
 - Clear about whether values are factual, estimated, or gameplay-tuned.
 
-## Roster Guidance
+## Current Roster Fixture
 
-When roster work begins:
+The current app ships a normalized seed fixture in `src/lib/rosters.ts`:
+
+- 20 selectable teams.
+- 160 shared player profiles.
+- Player names and short names are retained from the reviewed JSON research.
+- Ratings are original gameplay estimates from the research pass and are validated before use.
+- The current roster version is `research-2026-07-v1`.
+
+Current limitation: ratings are used for lineup ordering and bowling-pool selection, but delivery probabilities are not yet player-rating-specific.
+
+## Roster Guidance
 
 - Use player names only where legally appropriate.
 - Do not copy profile summaries from third-party websites.
 - Ratings should be original gameplay estimates.
 - Include source-review notes for major updates.
+- Future refreshes should be dev-only, diffable, and manually reviewed before changing `src/lib/rosters.ts`.
