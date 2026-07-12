@@ -37,6 +37,7 @@
 - Batting controls: aggression, shot selection, pace plan, spin plan, running risk, bowler targeting, partnership plan.
 - Bowling controls: length, line, field, variation use, pace strategy, spin strategy.
 - AI decisions: XI selection, toss, batting aggression, bowling changes, spell management, field settings, and condition-aware tactics.
+- First AI slice: condition-aware batting/bowling tactics, bowler choice, spell target, and concise reasoning for one-player mode.
 - Difficulty levels: Casual, Standard, Expert, Simulation.
 - Difficulty should affect AI quality and hint clarity, not hidden result rigging.
 
@@ -44,6 +45,7 @@
 
 - Single match: T20, ODI, Test, custom overs.
 - Custom/friendly match with user-selected conditions.
+- One-player match mode where the user controls Team A or Team B and AI controls the other side.
 - Series: T20I series, ODI series, Test series, mixed tour, IPL-style league, knockout cup.
 - Career-lite: IPL team management and international team management.
 
@@ -58,6 +60,7 @@
 
 - Build app sections: New Game, Career, Squad, Pick XI, Match, Series, Stats.
 - Use mobile bottom navigation and sticky match controls.
+- Active match cockpit hides setup chrome, keeps score/actions above the fold, and uses contextual decision sheets.
 - Show condition intelligence before and during matches.
 - Show Test day/session forecast and live condition changes.
 - Add tactics drawer, scorecard tabs, commentary feed, and simulation speed controls.

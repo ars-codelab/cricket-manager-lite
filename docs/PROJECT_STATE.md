@@ -53,12 +53,16 @@ Later milestones add:
 - Custom match controls include format, venue, weather, pitch, match time, outfield, difficulty, and batting tactics.
 - The simulator now produces ball events, batting card, bowling figures, extras, fall of wickets, partnerships, metadata, and recent commentary from a resumable `InningsState`.
 - Mobile app shell includes Home, Setup, Match, and Insights views with playable scenario presets.
-- Match screen supports progressive simulation controls: next over, five overs, ten overs, next wicket, custom overs, full innings, and reset.
-- Match screen includes live current-batter plans, next-over bowler selection, bowling line, length, field, variation, pace plan, and spin plan before continuing the innings.
+- Match screen now uses a dedicated mobile cockpit: active match hides global hero/nav chrome, keeps score/action controls above the fold, and exposes Exit to return to setup.
+- Match screen supports progressive simulation controls: next over, next wicket, custom overs, and AI-assisted auto chunks.
+- Match screen includes contextual decision sheets for current-batter plans, bowler spells, bowling line, length, field, variation, pace plan, and spin plan.
+- Setup supports sandbox mode and one-player mode; one-player mode lets the user control Team A or Team B while AI controls opponent decisions using difficulty and conditions.
+- Bowler spells track planned spell overs, spell progress, fatigue, and remaining quota.
 - Live batting and bowling decisions now feed future delivery probabilities instead of only changing the visible scorecard.
 - Current match setup can be saved locally, loaded, exported to JSON, and imported back into the browser.
 - Static distribution groundwork is in place: relative Vite paths, web manifest, service worker, Pages workflow, and release ZIP workflow.
 - Engine tests cover deterministic full innings, one-over advancement, stop-at-next-wicket advancement, selected bowler application, tactical divergence, fixture validation, and scorecard accounting.
+- Engine tests also cover limited-overs bowler caps, opening spells, and AI captaincy plan selection.
 
 ## Known Technical Debt
 
@@ -67,7 +71,7 @@ Later milestones add:
 - Test cricket remains a simplified one-innings simulation with five-day forecast display and active-day modifiers, not full multi-innings match state.
 - Service worker is basic app-shell/runtime caching and should be hardened before public beta.
 - Current save implementation uses localStorage for setup data only; full match state, match history, and career saves should move to IndexedDB.
-- Live decisions are currently team-level/generic-player tactics; deeper role/rating impact should be added once real rosters and player attributes exist.
+- Live decisions are currently team-level/generic-player tactics; deeper role/rating impact, true batting order choices, and richer AI should be added once real rosters and player attributes exist.
 
 ## GitHub
 

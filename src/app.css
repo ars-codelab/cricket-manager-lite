@@ -303,9 +303,105 @@ input {
 .match-stage {
   display: grid;
   gap: 14px;
+  min-height: calc(100vh - 20px);
   background:
     linear-gradient(150deg, rgba(18, 55, 45, 0.96), rgba(32, 92, 68, 0.9) 48%, rgba(236, 247, 228, 0.88) 49%),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 30px);
+}
+
+.cockpit-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: auto 1.3fr 1fr;
+  gap: 10px;
+  align-items: stretch;
+  color: #f8fff8;
+}
+
+.cockpit-header > div,
+.exit-match {
+  display: grid;
+  align-content: center;
+  min-height: 96px;
+  padding: 14px;
+  border: 1px solid rgba(248, 255, 248, 0.16);
+  background: rgba(9, 31, 24, 0.78);
+  backdrop-filter: blur(18px);
+}
+
+.exit-match {
+  min-width: 58px;
+  color: #173d30;
+  background: #f3c44f;
+  font-weight: 900;
+}
+
+.cockpit-header span,
+.match-context-strip span,
+.score-tabs button,
+.sheet-heading span {
+  color: #f3c44f;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.cockpit-header strong {
+  font-size: clamp(2rem, 9vw, 4.8rem);
+  line-height: 0.9;
+}
+
+.cockpit-header small {
+  color: #d8eadc;
+}
+
+.cockpit-actions,
+.score-tabs,
+.sheet-actions {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(3, minmax(0, 0.82fr));
+  gap: 8px;
+}
+
+.score-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.cockpit-actions button,
+.score-tabs button,
+.sheet-actions button {
+  min-height: 44px;
+  border-radius: 999px;
+  background: rgba(248, 255, 248, 0.94);
+  color: #173d30;
+  font-weight: 900;
+}
+
+.cockpit-actions .primary-action,
+.score-tabs button.active {
+  background: #f3c44f;
+  color: #1f271f;
+}
+
+.cockpit-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.match-context-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.match-context-strip span {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  color: #173d30;
+  background: rgba(248, 255, 248, 0.88);
 }
 
 .match-scorebug {
@@ -425,11 +521,17 @@ input {
 
 .matchup-card {
   display: grid;
+  width: 100%;
+  text-align: left;
   gap: 10px;
   min-height: 158px;
   align-content: center;
   padding: 16px;
   border: 1px solid rgba(23, 66, 52, 0.14);
+}
+
+button.matchup-card {
+  border-radius: 0;
 }
 
 .matchup-card.striker {
@@ -702,6 +804,50 @@ input {
   margin-top: 14px;
 }
 
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(7, 19, 15, 0.42);
+}
+
+.decision-sheet {
+  position: fixed;
+  z-index: 21;
+  inset: auto max(10px, calc((100vw - 720px) / 2)) 10px;
+  max-height: min(76vh, 720px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid rgba(23, 66, 52, 0.14);
+  background: #f8fff8;
+  color: #12201b;
+  box-shadow: 0 24px 80px rgba(7, 19, 15, 0.32);
+}
+
+.sheet-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.sheet-heading strong {
+  display: block;
+  color: #173d30;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.sheet-heading button {
+  min-height: 40px;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: #173d30;
+  color: #f8fff8;
+  font-weight: 900;
+}
+
 .ball-strip {
   display: flex;
   flex-wrap: wrap;
@@ -774,6 +920,7 @@ input {
   .scorecard-grid,
   .sim-controls,
   .match-scorebug,
+  .cockpit-header,
   .match-dashboard,
   .tempo-bar,
   .innings-break-panel,
@@ -800,11 +947,30 @@ input {
   }
 
   .match-stage {
+    margin: -10px;
     padding: 10px;
   }
 
-  .match-scorebug strong {
+  .match-scorebug strong,
+  .cockpit-header strong {
     font-size: 3.1rem;
+  }
+
+  .cockpit-header {
+    grid-template-columns: 56px 1fr;
+  }
+
+  .cockpit-header > div:last-child {
+    display: none;
+  }
+
+  .cockpit-actions {
+    grid-template-columns: 1.3fr repeat(3, minmax(0, 0.82fr));
+  }
+
+  .score-tabs {
+    grid-template-columns: repeat(5, minmax(64px, 1fr));
+    overflow-x: auto;
   }
 
   .matchup-card {

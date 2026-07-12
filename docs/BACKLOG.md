@@ -114,6 +114,49 @@ Acceptance criteria:
 - [x] User can switch between ball-by-ball and over-by-over stream views.
 - [x] Boundaries and wickets are visually highlighted in the stream.
 
+### Story: Play From A Mobile Match Cockpit
+
+Status: done for first slice.
+
+As a mobile player, I want match decisions and simulation buttons above the fold so that I can play without repeatedly scrolling past setup or marketing content.
+
+Acceptance criteria:
+
+- [x] Active match view hides Home/Setup hero chrome and shows an Exit action instead.
+- [x] Score, innings context, target/par, conditions, and primary actions are visible near the top of the match screen.
+- [x] Batter and bowler controls move into contextual sheets instead of always-visible long forms.
+- [x] User can tap the striker or bowler card to edit tactical parameters.
+- [x] Score details are available through tabs instead of forcing long vertical scrolling.
+
+### Story: One-Player Match Control
+
+Status: started.
+
+As a player, I want to control one side while the system controls the other so that the game feels like captaincy rather than a two-team sandbox.
+
+Acceptance criteria:
+
+- [x] Setup supports sandbox mode and one-player mode.
+- [x] User can choose Team A or Team B in one-player mode.
+- [x] AI can choose batting tactics, bowling tactics, bowler, spell length, and a concise reason.
+- [x] AI choices use match difficulty, conditions, format phase, and target pressure.
+- [ ] Add visible team names once real teams/rosters are introduced.
+- [ ] Add deeper AI evaluation after player ratings exist.
+
+### Story: Manage Bowler Spells
+
+Status: started.
+
+As a bowling captain, I want to plan a bowler's spell and see fatigue/quota so that bowling changes feel like cricket decisions.
+
+Acceptance criteria:
+
+- [x] Bowler sheet supports planned spell overs.
+- [x] Current bowler card shows spell progress, fatigue, and remaining quota.
+- [x] System prompts for a bowler when a spell completes or a bowler is exhausted.
+- [x] AI generates spell targets for automated/opponent bowling.
+- [ ] Refine spell tracking once real bowler roles and stamina ratings exist.
+
 ### Story: Understand Conditions
 
 Status: done.
@@ -129,7 +172,7 @@ Acceptance criteria:
 
 ## Milestone 2: Engine Confidence
 
-Status: started. Vitest is installed with deterministic RNG, stateful innings advancement, tactical divergence, fixture validation, and scorecard accounting tests.
+Status: started. Vitest is installed with deterministic RNG, stateful innings advancement, tactical divergence, fixture validation, scorecard accounting, bowling quota, and AI captaincy tests.
 
 ### Story: Validate Fixtures
 
@@ -165,6 +208,8 @@ Acceptance criteria:
 - [x] ODI bowlers are capped at ten overs.
 - [x] Opening bowlers are preferred in realistic early spells.
 - [x] Manual bowler choice applies to the next over, not every over in a multi-over simulation.
+- [x] AI captaincy avoids exhausted limited-overs bowlers.
+- [x] AI captaincy produces condition-aware plans with finite spell targets.
 
 ## Milestone 3: Teams And Rosters
 

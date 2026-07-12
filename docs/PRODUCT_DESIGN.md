@@ -4,7 +4,7 @@
 
 Cricket Manager Lite is a downloadable, offline-first mobile web cricket management game for cricket fans who enjoy tactical decisions, match conditions, and believable simulation more than arcade controls. The game should feel like a light, fast, browser-native version of a cricket captaincy simulator.
 
-The first version focuses on a custom/friendly match simulator. A player should be able to choose a format, venue, pitch, weather, and batting tactics, then understand how those choices affect the innings.
+The first version focuses on a custom/friendly match simulator. A player should be able to choose a format, venue, pitch, weather, control mode, and tactics, then understand how those choices affect the match.
 
 ## Audience
 
@@ -17,19 +17,21 @@ The first version focuses on a custom/friendly match simulator. A player should 
 
 1. Choose a match format and conditions.
 2. Review venue, weather, pitch, and tactical intelligence.
-3. Set batting tactics.
-4. Simulate the innings or match.
-5. Read scorecard, commentary, and condition-driven explanations.
-6. Adjust setup or tactics and replay with deterministic seeds.
+3. Choose sandbox control or one-player control.
+4. Enter the match cockpit and make contextual batting/bowling decisions.
+5. Simulate by over, wicket, custom chunk, innings, or AI-assisted auto mode.
+6. Read scorecard, commentary, and condition-driven explanations.
+7. Adjust setup or tactics and replay with deterministic seeds.
 
 ## First Playable Milestone
 
 The first playable milestone is a custom/friendly single-match simulator:
 
 - Supports T20, ODI, and simplified Test setup.
-- Lets the user choose venue, pitch, weather, match time, outfield, and batting tactics.
+- Lets the user choose venue, pitch, weather, match time, outfield, control mode, and batting tactics.
 - Uses deterministic ball-by-ball simulation.
 - Produces a scorecard, ball log, commentary feed, condition readout, and Test surface forecast.
+- Provides a dedicated mobile match cockpit with compact score/action controls and contextual tactic sheets.
 - Runs entirely in the browser as a static web app.
 
 Success means a user can open the app on a phone, configure a match in under a minute, simulate an innings, and understand why the result happened.
@@ -42,10 +44,12 @@ Success means a user can open the app on a phone, configure a match in under a m
 - The game should explain cricket logic in plain language.
 - Offline and downloadable behavior is a core requirement, not a later polish item.
 - Data should be curated and reviewable; no live scraping during gameplay.
+- Mobile match play should prioritize score, current players, and action buttons above supporting exposition.
 
 ## V1 Scope
 
 - Custom/friendly matches.
+- Sandbox and one-player match control.
 - Static venue, pitch, weather, and tactic data.
 - Deterministic TypeScript simulation.
 - Mobile-first Svelte UI.

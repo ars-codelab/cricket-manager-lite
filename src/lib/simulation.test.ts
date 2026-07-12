@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { venues } from './data'
-import { advanceInnings, buildTestForecast, createInningsState, createSeededRandom, defaultBowlingTactics, simulateInnings } from './simulation'
+import { advanceInnings, buildTestForecast, chooseAiCaptaincyPlan, createInningsState, createSeededRandom, defaultBowlingTactics, simulateInnings } from './simulation'
 import type { BattingTactics, BowlingTactics } from './types'
 
 const tactics: BattingTactics = {
@@ -170,6 +170,32 @@ describe('stateful innings engine', () => {
     expect(chase.completed).toBe(true)
     expect(chase.score).toBeGreaterThanOrEqual(1)
     expect(chase.scorecard.balls.length).toBeGreaterThan(0)
+  })
+})
+
+describe('AI captaincy plan', () => {
+  it('chooses condition-aware plans and finite limited-overs spell targets', () => {
+    const venue = venues.find((item) => item.id === 'lords') ?? venues[0]
+    const state = createInningsState(venue, 'T20', 'Overcast', 'Green', tactics, { difficulty: 'Expert' })
+    const plan = chooseAiCaptaincyPlan(state, 'Expert')
+
+    expect(plan.bowlerId).toMatch(/^bowler-/)
+    expect(plan.spellOvers).toBeGreaterThanOrEqual(1)
+    expect(plan.spellOvers).toBeLessThanOrEqual(4)
+    expect(plan.bowlingTactics.pacePlan).toBe('Swing')
+    expect(plan.battingTactics.pacePlan).toBe('Play late')
+    expect(plan.reason).toContain('Expert AI')
+  })
+
+  it('avoids exhausted limited-overs bowlers', () => {
+    const venue = venues.find((item) => item.id === 'wankhede') ?? venues[0]
+    const state = createInningsState(venue, 'T20', 'Humid', 'Flat', tactics)
+    state.scorecard.bowling[0].balls = 24
+    state.scorecard.bowling[1].balls = 24
+    const plan = chooseAiCaptaincyPlan(state, 'Standard')
+
+    expect(plan.bowlerId).not.toBe('bowler-1')
+    expect(plan.bowlerId).not.toBe('bowler-2')
   })
 })
 

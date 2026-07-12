@@ -3,10 +3,13 @@ import type {
   BallEvent,
   BatterScore,
   BattingTactics,
+  BowlingLength,
   BowlingTactics,
   BowlerFigures,
   ConditionModifiers,
   AdvanceInningsCommand,
+  Difficulty,
+  FieldSetting,
   InningsState,
   InningsScorecard,
   MatchConditions,
@@ -53,6 +56,14 @@ export const defaultBowlingTactics: BowlingTactics = {
   variation: 'Mixed',
   pacePlan: 'Seam',
   spinPlan: 'Attack stumps',
+}
+
+export type AiCaptaincyPlan = {
+  battingTactics: BattingTactics
+  bowlingTactics: BowlingTactics
+  bowlerId: string
+  spellOvers: number
+  reason: string
 }
 
 const tacticModifiers = (tactics: BattingTactics): ConditionModifiers => {
@@ -480,6 +491,49 @@ export const defaultBowlerForOver = (state: InningsState, overNumber = Math.floo
   }
 
   return [...pool].sort((first, second) => first.balls - second.balls)[0]?.id ?? state.scorecard.bowling[0]?.id ?? ''
+}
+
+export const chooseAiCaptaincyPlan = (state: InningsState, difficulty: Difficulty): AiCaptaincyPlan => {
+  const venue = venueForState(state)
+  const weather = weatherProfiles.find((item) => item.id === state.metadata.weatherId) ?? weatherProfiles[0]
+  const pitch = pitchProfiles.find((item) => item.id === state.metadata.pitchId) ?? pitchProfiles[0]
+  const phase = state.legalBalls / state.maxLegalBalls
+  const targetScore = state.targetScore
+  const chasing = typeof targetScore === 'number'
+  const requiredRate = chasing ? (Math.max(targetScore - state.score, 1) / Math.max((state.maxLegalBalls - state.legalBalls) / 6, 0.1)) : 0
+  const currentRate = state.legalBalls > 0 ? state.score / (state.legalBalls / 6) : state.par / (state.maxLegalBalls / 6)
+  const needsRuns = chasing ? requiredRate > currentRate + 1.2 : phase > 0.72
+  const conservativeAi = difficulty === 'Casual'
+  const sharpAi = difficulty === 'Expert' || difficulty === 'Simulation'
+  const spinHelp = venue.spin >= 7 || pitch.id === 'Dusty' || pitch.id === 'Worn' || pitch.id === 'Dry'
+  const seamHelp = venue.seam + venue.swing >= 13 || weather.id === 'Overcast' || pitch.id === 'Green'
+  const death = state.metadata.format !== 'Test' && phase > 0.78
+  const bowlerId = defaultBowlerForOver(state)
+  const selectedBowler = state.scorecard.bowling.find((bowler) => bowler.id === bowlerId)
+  const bowlerIndex = Math.max(0, state.scorecard.bowling.findIndex((bowler) => bowler.id === bowlerId))
+  const likelySpinner = bowlerIndex >= 2
+  const length: BowlingLength = death ? 'Yorker' : seamHelp && !likelySpinner ? 'Good' : likelySpinner && spinHelp ? 'Full' : 'Good'
+  const field: FieldSetting = conservativeAi ? 'Balanced' : state.wickets >= 7 || death ? 'Defensive' : seamHelp || spinHelp ? 'Attacking' : 'Balanced'
+
+  const battingTactics: BattingTactics = {
+    aggression: conservativeAi ? 'Balanced' : needsRuns ? (sharpAi ? 'Aggressive' : 'Positive') : seamHelp && phase < 0.18 ? 'Balanced' : 'Positive',
+    shots: needsRuns && !seamHelp ? 'Mixed' : seamHelp ? 'Ground' : 'Mixed',
+    pacePlan: seamHelp ? 'Play late' : death ? 'Counterattack' : 'Front-foot drive',
+    spinPlan: spinHelp ? (needsRuns ? 'Sweep' : 'Rotate strike') : 'Rotate strike',
+    running: sharpAi && !death ? 'Sharp' : 'Normal',
+  }
+  const bowlingTactics: BowlingTactics = {
+    length,
+    line: death ? 'Stumps' : seamHelp ? 'Fourth stump' : 'Stumps',
+    field,
+    variation: death || sharpAi ? 'Mixed' : 'Stock',
+    pacePlan: seamHelp ? (weather.id === 'Overcast' ? 'Swing' : 'Seam') : death ? 'Change-ups' : 'Hit deck',
+    spinPlan: spinHelp ? 'Use flight' : 'Defend into pitch',
+  }
+  const spellOvers = state.metadata.format === 'T20' ? 2 : state.metadata.format === 'ODI' ? (phase < 0.22 ? 5 : 3) : 6
+  const reason = `${difficulty} AI picks ${selectedBowler?.name ?? 'best bowler'}: ${seamHelp ? 'seam/swing help' : spinHelp ? 'spin help' : death ? 'death-over control' : 'phase balance'}.`
+
+  return { battingTactics, bowlingTactics, bowlerId, spellOvers, reason }
 }
 
 const resolveBowlerId = (state: InningsState, requestedBowlerId: string | undefined, requestedBowlerOver: number) => {

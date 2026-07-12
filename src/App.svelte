@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { parForFormat, pitchProfiles, venues, weatherProfiles } from './lib/data'
-  import { advanceInnings, createInningsState, defaultBowlerForOver, defaultBowlingTactics, inningsStateToResult, maxBallsPerBowler } from './lib/simulation'
+  import { advanceInnings, chooseAiCaptaincyPlan, createInningsState, defaultBowlerForOver, defaultBowlingTactics, inningsStateToResult, maxBallsPerBowler } from './lib/simulation'
   import type {
     Aggression,
     BattingTactics,
@@ -29,6 +29,11 @@
   } from './lib/types'
 
   type View = 'home' | 'setup' | 'match' | 'insights'
+  type ControlMode = 'sandbox' | 'one-player'
+  type UserSide = 'teamA' | 'teamB'
+  type DecisionSheet = 'batter-plan' | 'bowler-spell' | 'auto-sim' | null
+  type ScoreTab = 'stream' | 'batting' | 'bowling' | 'fall' | 'conditions'
+  type AutoSpeed = 'Instant' | 'Fast' | 'Watch'
   type MatchResultSummary = {
     winner: string
     margin: string
@@ -50,6 +55,8 @@
     pacePlan: PacePlan
     spinPlan: SpinPlan
     running: RunningRisk
+    controlMode?: ControlMode
+    userSide?: UserSide
     savedAt: string
   }
 
@@ -70,6 +77,9 @@
   const variationUses: VariationUse[] = ['Stock', 'Mixed', 'Heavy variation']
   const paceBowlingPlans: PaceBowlingPlan[] = ['Hit deck', 'Swing', 'Seam', 'Change-ups']
   const spinBowlingPlans: SpinBowlingPlan[] = ['Attack stumps', 'Defend into pitch', 'Use flight', 'Fire it in']
+  const controlModes: ControlMode[] = ['sandbox', 'one-player']
+  const userSides: UserSide[] = ['teamA', 'teamB']
+  const autoSpeeds: AutoSpeed[] = ['Instant', 'Fast', 'Watch']
 
   let view: View = 'home'
   let format: MatchFormat = 'T20'
@@ -84,10 +94,20 @@
   let pacePlan: PacePlan = 'Play late'
   let spinPlan: SpinPlan = 'Rotate strike'
   let running: RunningRisk = 'Normal'
+  let controlMode: ControlMode = 'sandbox'
+  let userSide: UserSide = 'teamA'
   let saveMessage = 'No saved setup loaded.'
   let importInput: HTMLInputElement | null = null
   let customOvers = 2
+  let plannedSpellOvers = 2
+  let spellBowlerId = ''
+  let spellStartBalls = 0
   let streamMode: 'ball' | 'over' = 'ball'
+  let scoreTab: ScoreTab = 'stream'
+  let autoSpeed: AutoSpeed = 'Fast'
+  let activeSheet: DecisionSheet = null
+  let lastPromptKey = ''
+  let aiNotice = 'Manual controls ready.'
   let lastSimulationKey = ''
   let lastNextBallKey = ''
   let nextBowlerId = ''
@@ -114,7 +134,7 @@
   )
 
   $: venue = venues.find((item) => item.id === venueId) ?? venues[0]
-  $: setupKey = `${venue.id}-${format}-${weather}-${pitch}-${matchTime}-${outfield}-${difficulty}-${aggression}-${shots}-${pacePlan}-${spinPlan}-${running}`
+  $: setupKey = `${venue.id}-${format}-${weather}-${pitch}-${matchTime}-${outfield}-${difficulty}-${aggression}-${shots}-${pacePlan}-${spinPlan}-${running}-${controlMode}-${userSide}`
   $: if (setupKey !== lastSimulationKey) {
     lastSimulationKey = setupKey
     inningsState = createInningsState(venue, format, weather, pitch, currentBattingTactics(), { matchTime, outfield, difficulty })
@@ -122,6 +142,10 @@
     batterPlans = {}
     lastNextBallKey = ''
     nextBowlerId = defaultBowlerForOver(inningsState)
+    spellBowlerId = nextBowlerId
+    spellStartBalls = 0
+    plannedSpellOvers = defaultSpellOvers(format)
+    activeSheet = null
   }
   $: result = inningsStateToResult(inningsState)
   $: par = parForFormat(venue, format)
@@ -152,6 +176,14 @@
   $: currentBowler = result.scorecard.bowling.find((bowler) => bowler.id === nextBowlerId) ?? result.scorecard.bowling[0]
   $: currentBowlerUsage = bowlerUsage[currentBowler?.id ?? '']
   $: currentOverNumber = Math.floor(inningsState.legalBalls / 6)
+  $: battingSide = inningsState.inningsNumber === 1 ? 'teamA' : 'teamB'
+  $: bowlingSide = inningsState.inningsNumber === 1 ? 'teamB' : 'teamA'
+  $: userBatting = controlMode === 'sandbox' || battingSide === userSide
+  $: userBowling = controlMode === 'sandbox' || bowlingSide === userSide
+  $: currentBowlerSpellBalls = currentBowler?.id === spellBowlerId ? Math.max(0, (currentBowler?.balls ?? 0) - spellStartBalls) : 0
+  $: currentBowlerSpellOvers = Math.floor(currentBowlerSpellBalls / 6)
+  $: spellComplete = currentBowlerSpellOvers >= plannedSpellOvers || Boolean(currentBowlerUsage?.exhausted)
+  $: controlLabel = controlMode === 'sandbox' ? 'Sandbox: control both teams' : userSide === 'teamA' ? 'One-player: Team A' : 'One-player: Team B'
   $: inningsLabel = `${ordinal(inningsState.inningsNumber)} innings`
   $: chaseLabel = typeof inningsState.targetScore === 'number' ? `Target ${inningsState.targetScore}` : 'No target'
   $: matchResult = firstInningsResult && isComplete && inningsState.inningsNumber === 2 ? buildMatchResult(firstInningsResult, result) : null
@@ -161,7 +193,7 @@
       : null
   $: recentRuns = recentBalls.slice(-12).reduce((total, ball) => total + ball.totalRuns, 0)
   $: recentWickets = recentBalls.slice(-12).filter((ball) => ball.wicketType).length
-  $: momentumLabel = recentWickets >= 2 ? 'Bowling surge' : recentRuns >= 18 ? 'Batting charge' : recentRuns >= 10 ? 'Batting edge' : 'Arm wrestle'
+  $: momentumLabel = recentWickets >= 2 ? 'Bowling pressure' : recentRuns >= 18 ? 'Batters on top' : recentRuns >= 10 ? 'Batting edge' : 'Even contest'
   $: nextBallKey = `${lastSimulationKey}-${progress.legalBalls}-${progress.wickets}-${currentStriker?.id ?? 'complete'}`
   $: if (nextBallKey !== lastNextBallKey) {
     const storedPlan = currentStriker?.id ? batterPlans[currentStriker.id] : null
@@ -173,6 +205,14 @@
     liveSpinPlan = storedPlan?.spinPlan ?? spinPlan
     liveRunning = storedPlan?.running ?? running
   }
+  $: promptKey = `${lastSimulationKey}-${inningsState.inningsNumber}-${progress.wickets}-${currentOverNumber}-${spellBowlerId}-${spellComplete}-${isComplete}`
+  $: if (!isComplete && promptKey !== lastPromptKey) {
+    lastPromptKey = promptKey
+    const needsBatterPlan = userBatting && (result.scorecard.balls.length === 0 || (progress.wickets > 0 && currentStriker?.balls === 0))
+    const needsBowlerPlan = userBowling && (!spellBowlerId || spellComplete || result.scorecard.balls.length === 0)
+    if (needsBatterPlan) activeSheet = 'batter-plan'
+    else if (needsBowlerPlan) activeSheet = 'bowler-spell'
+  }
   $: venueSummary = `${venue.city}, ${venue.country} · ${weather} · ${pitch} pitch`
 
   const bowlingOvers = (balls: number) => `${Math.floor(balls / 6)}.${balls % 6}`
@@ -180,6 +220,9 @@
   const economyRate = (bowler: BowlerFigures | undefined) => (bowler && bowler.balls > 0 ? (bowler.runs / (bowler.balls / 6)).toFixed(2) : '0.00')
   const deliveryLabel = (runs: number) => (runs === 0 ? 'dot' : `${runs}`)
   const fatigueLabel = (fatigue: number) => (fatigue >= 82 ? 'Spent' : fatigue >= 58 ? 'Tiring' : fatigue >= 32 ? 'Warm' : 'Fresh')
+  const defaultSpellOvers = (activeFormat: MatchFormat) => (activeFormat === 'T20' ? 2 : activeFormat === 'ODI' ? 4 : 6)
+  const sideLabel = (side: UserSide) => (side === 'teamA' ? 'Team A' : 'Team B')
+  const isMatchActive = () => view === 'match'
 
   const buildBowlerUsage = (bowlers: BowlerFigures[], activeFormat: MatchFormat) => {
     const maxBalls = maxBallsPerBowler(activeFormat)
@@ -293,6 +336,26 @@
     spinPlan: liveSpinBowlingPlan,
   })
 
+  const applyAiPlanToLiveState = () => {
+    const plan = chooseAiCaptaincyPlan(inningsState, difficulty)
+    nextBowlerId = plan.bowlerId
+    plannedSpellOvers = plan.spellOvers
+    liveAggression = plan.battingTactics.aggression
+    liveShots = plan.battingTactics.shots
+    livePacePlan = plan.battingTactics.pacePlan
+    liveSpinPlan = plan.battingTactics.spinPlan
+    liveRunning = plan.battingTactics.running
+    liveBowlingLength = plan.bowlingTactics.length
+    liveBowlingLine = plan.bowlingTactics.line
+    liveField = plan.bowlingTactics.field
+    liveVariation = plan.bowlingTactics.variation
+    livePaceBowlingPlan = plan.bowlingTactics.pacePlan
+    liveSpinBowlingPlan = plan.bowlingTactics.spinPlan
+    aiNotice = plan.reason
+
+    return plan
+  }
+
   const commitLivePlan = () => {
     const plan = currentLiveBattingTactics()
     if (currentStriker?.id) {
@@ -305,16 +368,47 @@
     return plan
   }
 
+  const commitBowlerSpell = () => {
+    const selected = result.scorecard.bowling.find((bowler) => bowler.id === nextBowlerId) ?? result.scorecard.bowling[0]
+    if (!selected) return
+    spellBowlerId = selected.id
+    spellStartBalls = selected.balls
+    nextBowlerId = selected.id
+    activeSheet = null
+  }
+
+  const startMatch = () => {
+    resetInnings()
+    view = 'match'
+    activeSheet = userBatting ? 'batter-plan' : userBowling ? 'bowler-spell' : null
+  }
+
+  const exitMatch = () => {
+    activeSheet = null
+    view = 'setup'
+  }
+
   const advanceSimulation = (mode: 'overs' | 'wicket' | 'innings', overs?: number) => {
-    const battingTactics = commitLivePlan()
+    const aiPlan = !userBatting || !userBowling ? applyAiPlanToLiveState() : null
+    const battingTactics = userBatting ? commitLivePlan() : (aiPlan?.battingTactics ?? currentLiveBattingTactics())
+    const bowlingTactics = userBowling ? currentLiveBowlingTactics() : (aiPlan?.bowlingTactics ?? currentLiveBowlingTactics())
+    const bowlerId = userBowling ? nextBowlerId : (aiPlan?.bowlerId ?? nextBowlerId)
+    const beforeBowler = result.scorecard.bowling.find((bowler) => bowler.id === bowlerId)
+    if (!userBowling && aiPlan) {
+      plannedSpellOvers = aiPlan.spellOvers
+      spellBowlerId = aiPlan.bowlerId
+      spellStartBalls = beforeBowler?.balls ?? 0
+    }
     advanceInnings(inningsState, {
       mode,
       overs,
       battingTactics,
-      bowlerId: nextBowlerId,
-      bowlingTactics: currentLiveBowlingTactics(),
+      bowlerId,
+      bowlingTactics,
     })
     inningsState = inningsState
+    const afterBowler = inningsState.scorecard.bowling.find((bowler) => bowler.id === bowlerId)
+    if (userBowling && afterBowler && afterBowler.balls - spellStartBalls >= plannedSpellOvers * 6) activeSheet = 'bowler-spell'
   }
 
   const startNextInnings = () => {
@@ -334,6 +428,10 @@
     batterPlans = {}
     lastNextBallKey = ''
     nextBowlerId = defaultBowlerForOver(inningsState)
+    spellBowlerId = nextBowlerId
+    spellStartBalls = 0
+    plannedSpellOvers = defaultSpellOvers(format)
+    activeSheet = null
   }
 
   const revealOvers = (overs: number) => {
@@ -365,6 +463,8 @@
     pacePlan,
     spinPlan,
     running,
+    controlMode,
+    userSide,
     savedAt: new Date().toISOString(),
   })
 
@@ -381,6 +481,8 @@
     pacePlan = setup.pacePlan
     spinPlan = setup.spinPlan
     running = setup.running
+    controlMode = setup.controlMode ?? 'sandbox'
+    userSide = setup.userSide ?? 'teamA'
   }
 
   const saveSetup = () => {
@@ -483,29 +585,32 @@
     }
 
     view = 'match'
+    activeSheet = userBatting ? 'batter-plan' : userBowling ? 'bowler-spell' : null
   }
 </script>
 
 <main class="app-shell">
-  <section class="hero-panel">
-    <div>
-      <p class="eyebrow">Cricket Manager Lite</p>
-      <h1>Captain the conditions, not just the scoreboard.</h1>
-      <p class="hero-copy">{venueSummary}</p>
-    </div>
-    <div class="score-tile">
-      <span>{result.scorecard.balls.length === 0 ? 'Ready innings' : 'Current innings'}</span>
-      <strong>{progress.score}/{progress.wickets}</strong>
-      <small>{progress.overs} overs · RR {progress.runRate} · par {par}</small>
-    </div>
-  </section>
+  {#if !isMatchActive()}
+    <section class="hero-panel">
+      <div>
+        <p class="eyebrow">Cricket Manager Lite</p>
+        <h1>Captain the conditions, not just the scoreboard.</h1>
+        <p class="hero-copy">{venueSummary}</p>
+      </div>
+      <div class="score-tile">
+        <span>{result.scorecard.balls.length === 0 ? 'Ready innings' : 'Current innings'}</span>
+        <strong>{progress.score}/{progress.wickets}</strong>
+        <small>{progress.overs} overs · RR {progress.runRate} · par {par}</small>
+      </div>
+    </section>
 
-  <nav class="bottom-nav" aria-label="Primary sections">
-    <button class:active={view === 'home'} type="button" on:click={() => (view = 'home')}>Home</button>
-    <button class:active={view === 'setup'} type="button" on:click={() => (view = 'setup')}>Setup</button>
-    <button class:active={view === 'match'} type="button" on:click={() => (view = 'match')}>Match</button>
-    <button class:active={view === 'insights'} type="button" on:click={() => (view = 'insights')}>Insights</button>
-  </nav>
+    <nav class="bottom-nav" aria-label="Primary sections">
+      <button class:active={view === 'home'} type="button" on:click={() => (view = 'home')}>Home</button>
+      <button class:active={view === 'setup'} type="button" on:click={() => (view = 'setup')}>Setup</button>
+      <button class:active={view === 'match'} type="button" on:click={() => (view = 'match')}>Match</button>
+      <button class:active={view === 'insights'} type="button" on:click={() => (view = 'insights')}>Insights</button>
+    </nav>
+  {/if}
 
   {#if view === 'home'}
     <section class="home-grid">
@@ -610,6 +715,26 @@
           </select>
         </label>
 
+        <label>
+          Control mode
+          <select bind:value={controlMode}>
+            {#each controlModes as item}
+              <option value={item}>{item === 'sandbox' ? 'Sandbox: control both teams' : 'One-player: control one team'}</option>
+            {/each}
+          </select>
+        </label>
+
+        {#if controlMode === 'one-player'}
+          <label>
+            Your side
+            <select bind:value={userSide}>
+              {#each userSides as item}
+                <option value={item}>{sideLabel(item)} {item === 'teamA' ? '(bats first)' : '(chases)'}</option>
+              {/each}
+            </select>
+          </label>
+        {/if}
+
         <div class="venue-grid" aria-label="Venue ratings">
           <span>Pace <b>{venue.paceCarry}</b></span>
           <span>Seam <b>{venue.seam}</b></span>
@@ -671,7 +796,7 @@
           </select>
         </label>
 
-        <button class="wide-action" type="button" on:click={() => { resetInnings(); view = 'match' }}>Start match</button>
+        <button class="wide-action" type="button" on:click={startMatch}>Start match</button>
         <div class="save-actions">
           <button type="button" on:click={saveSetup}>Save</button>
           <button type="button" on:click={loadSetup}>Load</button>
@@ -686,17 +811,25 @@
 
   {#if view === 'match'}
     <section class="scorecard-panel match-stage">
-      <div class="match-scorebug">
+      <div class="cockpit-header">
+        <button class="exit-match" type="button" on:click={exitMatch}>Exit</button>
         <div>
-          <span>{inningsLabel}</span>
+          <span>{inningsLabel} · {controlLabel}</span>
           <strong>{progress.score}/{progress.wickets}</strong>
-          <small>{progress.overs} overs · RR {progress.runRate}{requiredRate ? ` · Req ${requiredRate}` : ''}</small>
+          <small>{progress.overs} ov · RR {progress.runRate}{requiredRate ? ` · Req ${requiredRate}` : ''} · {momentumLabel}</small>
         </div>
         <div>
           <span>{typeof inningsState.targetScore === 'number' ? chaseLabel : `${format} par ${par}`}</span>
-          <strong>{momentumLabel}</strong>
-          <small>{venue.city} · {weather} · {pitch}</small>
+          <strong>{venue.city}</strong>
+          <small>{weather} · {pitch} · {matchTime}</small>
         </div>
+      </div>
+
+      <div class="cockpit-actions">
+        <button class="primary-action" type="button" on:click={() => revealOvers(1)} disabled={isComplete}>Play over</button>
+        <button type="button" on:click={() => (activeSheet = 'auto-sim')} disabled={isComplete}>Auto</button>
+        <button type="button" on:click={revealNextWicket} disabled={isComplete}>Wicket</button>
+        <button type="button" on:click={() => revealOvers(Number(customOvers) || 1)} disabled={isComplete}>Custom</button>
       </div>
 
       {#if isComplete && inningsState.inningsNumber === 1}
@@ -742,17 +875,17 @@
       {/if}
 
       <div class="match-dashboard">
-        <article class="matchup-card striker">
+        <button class="matchup-card striker" type="button" on:click={() => (activeSheet = userBatting && !isComplete ? 'batter-plan' : activeSheet)}>
           <span>On strike</span>
           <strong>{currentStriker?.name ?? 'Innings complete'}</strong>
           <div class="stat-line">
             <b>{currentStriker?.runs ?? 0}</b>
             <small>{currentStriker?.balls ?? 0} balls · SR {strikeRate(currentStriker)}</small>
           </div>
-          <small>{currentPartner?.name ? `Partner ${currentPartner.name} ${currentPartner.runs} (${currentPartner.balls})` : 'No partner'}</small>
-        </article>
+          <small>{currentPartner?.name ? `Partner ${currentPartner.name} ${currentPartner.runs} (${currentPartner.balls})` : 'No partner'}{userBatting && !isComplete ? ' · tap to edit' : ''}</small>
+        </button>
 
-        <article class="matchup-card bowler">
+        <button class="matchup-card bowler" type="button" on:click={() => (activeSheet = userBowling && !isComplete ? 'bowler-spell' : activeSheet)}>
           <span>With the ball</span>
           <strong>{currentBowler?.name ?? 'Bowler'}</strong>
           <div class="stat-line">
@@ -762,7 +895,7 @@
           <small>
             {liveBowlingLength} · {liveBowlingLine} · {liveField}
             {#if currentBowlerUsage}
-              · Fatigue {currentBowlerUsage.fatigue}% ({currentBowlerUsage.fatigueLabel}) · {currentBowlerUsage.remainingOvers} left
+              · spell {currentBowlerSpellOvers}/{plannedSpellOvers} · Fatigue {currentBowlerUsage.fatigue}% · {currentBowlerUsage.remainingOvers} left
             {/if}
           </small>
           {#if currentBowlerUsage}
@@ -770,26 +903,24 @@
               <span style={`width: ${currentBowlerUsage.fatigue}%`}></span>
             </div>
           {/if}
-        </article>
+        </button>
       </div>
 
-      <div class="tempo-bar">
-        <button class="primary-action" type="button" on:click={() => revealOvers(1)} disabled={isComplete}>Play over</button>
-        <button type="button" on:click={() => revealOvers(5)} disabled={isComplete}>+5</button>
-        <button type="button" on:click={revealNextWicket} disabled={isComplete}>Wicket</button>
-        <button type="button" on:click={() => advanceSimulation('innings')} disabled={isComplete}>Innings</button>
-        <button type="button" on:click={resetInnings} disabled={result.scorecard.balls.length === 0}>Reset</button>
+      <div class="match-context-strip">
+        <span>{userBatting ? 'You control batting' : 'AI controls batting'}</span>
+        <span>{userBowling ? 'You control bowling' : 'AI controls bowling'}</span>
+        <span>{aiNotice}</span>
       </div>
 
-      <div class="custom-sim compact-sim">
-        <label>
-          Custom overs
-          <input bind:value={customOvers} min="1" max="30" type="number" />
-        </label>
-        <button type="button" on:click={() => revealOvers(Number(customOvers) || 1)} disabled={isComplete}>Sim custom</button>
-        <span>{result.scorecard.balls.length === 0 ? 'Ready to start.' : isComplete ? 'Innings complete.' : `${result.scorecard.balls.length} events simulated.`}</span>
+      <div class="score-tabs" aria-label="Scorecard tabs">
+        <button class:active={scoreTab === 'stream'} type="button" on:click={() => (scoreTab = 'stream')}>Stream</button>
+        <button class:active={scoreTab === 'batting'} type="button" on:click={() => (scoreTab = 'batting')}>Batting</button>
+        <button class:active={scoreTab === 'bowling'} type="button" on:click={() => (scoreTab = 'bowling')}>Bowling</button>
+        <button class:active={scoreTab === 'fall'} type="button" on:click={() => (scoreTab = 'fall')}>FOW</button>
+        <button class:active={scoreTab === 'conditions'} type="button" on:click={() => (scoreTab = 'conditions')}>Read</button>
       </div>
 
+      {#if scoreTab === 'stream'}
       <article class="game-stream">
         <div class="stream-heading">
           <div>
@@ -832,140 +963,11 @@
           </div>
         {/if}
       </article>
-
-      {#if !isComplete}
-        <div class="live-plan">
-          <article>
-            <div class="panel-heading">
-              <span>Current Batters</span>
-              <strong>{currentStriker?.name ?? 'Innings complete'}</strong>
-            </div>
-            <p class="muted">Partner: {currentPartner?.name ?? 'none'} · plans are saved per striker before each advance.</p>
-
-            <label>
-              Batter intent
-              <select bind:value={liveAggression}>
-                {#each aggressions as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Shot selection
-              <select bind:value={liveShots}>
-                {#each shotSelections as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Pace plan
-              <select bind:value={livePacePlan}>
-                {#each pacePlans as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Spin plan
-              <select bind:value={liveSpinPlan}>
-                {#each spinPlans as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Running
-              <select bind:value={liveRunning}>
-                {#each runningRisks as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-          </article>
-
-          <article>
-            <div class="panel-heading">
-              <span>Next Over</span>
-              <strong>Over {currentOverNumber + 1}</strong>
-            </div>
-            <p class="muted">Choose the bowler and plan before continuing. These decisions feed the next simulated deliveries.</p>
-
-            <label>
-              Bowler
-              <select bind:value={nextBowlerId}>
-                {#each result.scorecard.bowling as bowler}
-                  <option value={bowler.id} disabled={bowlerUsage[bowler.id]?.exhausted}>
-                    {bowler.name} · {bowlingOvers(bowler.balls)} ov · {bowlerUsage[bowler.id]?.remainingOvers ?? 'open'} left · {bowlerUsage[bowler.id]?.fatigueLabel ?? 'Fresh'}
-                  </option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Length
-              <select bind:value={liveBowlingLength}>
-                {#each bowlingLengths as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Line
-              <select bind:value={liveBowlingLine}>
-                {#each bowlingLines as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Field
-              <select bind:value={liveField}>
-                {#each fieldSettings as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Variation
-              <select bind:value={liveVariation}>
-                {#each variationUses as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Pace plan
-              <select bind:value={livePaceBowlingPlan}>
-                {#each paceBowlingPlans as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <label>
-              Spin plan
-              <select bind:value={liveSpinBowlingPlan}>
-                {#each spinBowlingPlans as item}
-                  <option value={item}>{item}</option>
-                {/each}
-              </select>
-            </label>
-
-            <button class="wide-action" type="button" on:click={commitLivePlan}>Apply live plan</button>
-          </article>
-        </div>
       {/if}
 
+      {#if scoreTab === 'batting' || scoreTab === 'bowling'}
       <div class="scorecard-grid">
+        {#if scoreTab === 'batting'}
         <article>
           <h2>Batting</h2>
           <div class="table-list">
@@ -980,7 +982,9 @@
             {/each}
           </div>
         </article>
+        {/if}
 
+        {#if scoreTab === 'bowling'}
         <article>
           <h2>Bowling</h2>
           <div class="table-list">
@@ -995,8 +999,11 @@
             {/each}
           </div>
         </article>
+        {/if}
       </div>
+      {/if}
 
+      {#if scoreTab === 'fall'}
       <div class="scorecard-grid compact">
         <article>
           <h2>Extras</h2>
@@ -1022,18 +1029,165 @@
           </p>
         </article>
       </div>
+      {/if}
 
+      {#if scoreTab === 'conditions'}
       <article class="ball-log">
-        <h2>Recent Ball Log</h2>
-        <div class="ball-strip">
-          {#each recentBalls as ball}
-            <span class:wicket={Boolean(ball.wicketType)} class:boundary={ball.runsBat === 4 || ball.runsBat === 6}>
-              <b>{ball.over}</b>
-              {ball.wicketType ? 'W' : ball.extraType ? ball.extraType : ball.runsBat}
-            </span>
-          {/each}
-        </div>
+        <h2>Conditions And Tactical Read</h2>
+        {#each result.conditionReadout as line}
+          <p>{line}</p>
+        {/each}
+        {#each result.log.slice(0, 4) as line}
+          <p class="muted">{line}</p>
+        {/each}
       </article>
+      {/if}
+
+      {#if activeSheet && !isComplete}
+        <div class="sheet-backdrop" role="presentation" on:click={() => (activeSheet = null)}></div>
+        <section class="decision-sheet" aria-label="Match decision sheet">
+          <div class="sheet-heading">
+            <div>
+              <span>{activeSheet === 'batter-plan' ? 'Batter plan' : activeSheet === 'bowler-spell' ? 'Bowler spell' : 'Auto simulate'}</span>
+              <strong>{activeSheet === 'batter-plan' ? currentStriker?.name : activeSheet === 'bowler-spell' ? `Over ${currentOverNumber + 1}` : 'System captaincy'}</strong>
+            </div>
+            <button type="button" on:click={() => (activeSheet = null)}>Close</button>
+          </div>
+
+          {#if activeSheet === 'batter-plan'}
+            <p class="muted">Set the striker plan. New batters open here automatically; tap a batter card later to change it.</p>
+            <label>
+              Batter intent
+              <select bind:value={liveAggression}>
+                {#each aggressions as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Shot selection
+              <select bind:value={liveShots}>
+                {#each shotSelections as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Pace plan
+              <select bind:value={livePacePlan}>
+                {#each pacePlans as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Spin plan
+              <select bind:value={liveSpinPlan}>
+                {#each spinPlans as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Running
+              <select bind:value={liveRunning}>
+                {#each runningRisks as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <button class="wide-action" type="button" on:click={() => { commitLivePlan(); activeSheet = userBowling && result.scorecard.balls.length === 0 ? 'bowler-spell' : null }}>Apply batter plan</button>
+          {/if}
+
+          {#if activeSheet === 'bowler-spell'}
+            <p class="muted">Pick the next bowler and spell target. A spell means this bowler's next planned overs, not consecutive overs.</p>
+            <label>
+              Bowler
+              <select bind:value={nextBowlerId}>
+                {#each result.scorecard.bowling as bowler}
+                  <option value={bowler.id} disabled={bowlerUsage[bowler.id]?.exhausted}>
+                    {bowler.name} · {bowlingOvers(bowler.balls)} ov · {bowlerUsage[bowler.id]?.remainingOvers ?? 'open'} left · {bowlerUsage[bowler.id]?.fatigueLabel ?? 'Fresh'}
+                  </option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Spell overs
+              <input bind:value={plannedSpellOvers} min="1" max={format === 'T20' ? 4 : format === 'ODI' ? 10 : 12} type="number" />
+            </label>
+            <label>
+              Length
+              <select bind:value={liveBowlingLength}>
+                {#each bowlingLengths as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Line
+              <select bind:value={liveBowlingLine}>
+                {#each bowlingLines as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Field
+              <select bind:value={liveField}>
+                {#each fieldSettings as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Variation
+              <select bind:value={liveVariation}>
+                {#each variationUses as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Pace plan
+              <select bind:value={livePaceBowlingPlan}>
+                {#each paceBowlingPlans as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Spin plan
+              <select bind:value={liveSpinBowlingPlan}>
+                {#each spinBowlingPlans as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <button class="wide-action" type="button" on:click={commitBowlerSpell}>Start spell</button>
+          {/if}
+
+          {#if activeSheet === 'auto-sim'}
+            <p class="muted">Let the system pick condition-aware options. In one-player mode, AI controls only opponent decisions unless your side is not involved in the current skill.</p>
+            <label>
+              Speed
+              <select bind:value={autoSpeed}>
+                {#each autoSpeeds as item}
+                  <option value={item}>{item}</option>
+                {/each}
+              </select>
+            </label>
+            <label>
+              Custom overs
+              <input bind:value={customOvers} min="1" max="30" type="number" />
+            </label>
+            <div class="sheet-actions">
+              <button type="button" on:click={() => { revealOvers(5); activeSheet = null }}>5 overs</button>
+              <button type="button" on:click={() => { revealOvers(Number(customOvers) || 1); activeSheet = null }}>Custom</button>
+              <button type="button" on:click={() => { advanceSimulation('innings'); activeSheet = null }}>Innings</button>
+            </div>
+          {/if}
+        </section>
+      {/if}
     </section>
   {/if}
 
